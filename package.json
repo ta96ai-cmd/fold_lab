@@ -13,6 +13,7 @@
   },
   "dependencies": {
     "mp4-muxer": "^5.2.2",
+    "pdfjs-dist": "^4.10.38",
     "three": "^0.160.0"
   },
   "devDependencies": {

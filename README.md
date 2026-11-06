@@ -15,7 +15,7 @@ npm run build:single   # one offline HTML -> dist-single/index.html
 
 ## How it works
 
-1. **Parse SVG** (`src/svg/parse-svg.js`): reads every stroked path, line, rect, polygon and curve, applies transforms, and groups lines by stroke colour (dashed lines count as their own group).
+1. **Parse SVG or PDF** (`src/svg/parse-svg.js`, `src/svg/parse-pdf.js`): reads every stroked path, line, rect, polygon and curve, applies transforms, and groups lines by stroke colour (dashed lines count as their own group). PDFs and PDF-compatible Illustrator (.ai) files are read with pdf.js (page 1): only stroked lines are used, fills, text and images are ignored, and spot/CMYK colours are converted to RGB so cut and crease still get told apart.
 2. **Map colours** (sidebar): each colour is set to Cut, Crease or Ignore. By default magenta, red and black become Cut; cyan, blue, green and any dashed colour become Crease.
 3. **Find panels** (`src/engine/fold-engine.js`): builds a planar graph from all lines, splits at intersections (tolerating creases that stop a little short), and traces the closed faces. Those faces are the panels.
 4. **Find hinges**: two panels sharing a crease edge form a hinge. A spanning tree grows from the largest panel, and each hinge stores its axis and which way is "fold back".
@@ -48,6 +48,7 @@ docs/REA-report.md         the reverse-engineering breakdown
 - **Phase 1 (done):** SVG import, cut/crease mapping, panel and hinge detection, fold sliders, fold animation.
 - **Phase 2 (done):** board thickness (hinges on the inside surface), exterior and interior artwork, sample artwork, fold presets (Flat, Half, Closed, Lid open), 3 camera moves (Showcase orbit, Hero reveal, Top-down reveal) with the lid opening mid-shot.
 - **Phase 3 (done):** PNG export (1080p, 4K, square, vertical; fit-to-frame; transparent background), MP4 export (H.264, 30/60fps, landscape / vertical Reels / square, rendered frame by frame), all 9 camera moves, "My dielines" library saved in the browser.
+- **v0.5 (done):** PDF and PDF-compatible .ai import, collapsible sidebar sections.
 - **v0.4 (done):** dieline generator (reverse tuck end, straight tuck end) from inside size + board thickness; dieline SVG download; 3D model (.glb) export at real size for Blender; sheet size shown in mm.
 - **Next:** auto-lock bottom, tray and sleeve styles; PDF/DXF dieline export; BOS "3D proof" integration; holes and windows in panels.
 

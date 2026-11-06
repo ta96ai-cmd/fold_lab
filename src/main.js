@@ -16,6 +16,7 @@ import { saveDieline, listDielines, getDieline, deleteDieline } from './storage/
 import { BOX_STYLES, DEFAULT_BOX, generateTuckBox } from './generator/tuck-box.js';
 import { exportGLB } from './export/glb.js';
 import { makeCollapsible } from './ui/collapsible.js';
+import { pdfToDielineSVG } from './svg/parse-pdf.js';
 
 const $ = id => document.getElementById(id);
 const state = {
@@ -343,9 +344,19 @@ renderLib();
 // ---------- file input ----------
 const drop = $('drop'), file = $('file');
 drop.onclick = () => file.click();
-const readFile = f => {
+const readFile = async f => {
   if (!f) return;
   if (/^image\/(png|jpe?g|webp)$/.test(f.type)) return readImage(f, 'exterior'); // dropped artwork
+  if (/\.(pdf|ai)$/i.test(f.name) || f.type === 'application/pdf') {
+    showMsg(`Reading ${f.name}…`, 'warn');
+    try {
+      const { svg, pages } = await pdfToDielineSVG(await f.arrayBuffer(), f.name);
+      if (loadSVG(svg, f.name.replace(/\.(pdf|ai)$/i, '') + ' (from PDF).svg') && pages > 1)
+        showMsg(`${f.name} has ${pages} pages; only page 1 was used.`, 'warn');
+    } catch (e) { showMsg(e.message, 'err'); console.error(e); }
+    return;
+  }
+  if (!/\.svg$/i.test(f.name) && f.type !== 'image/svg+xml') return showMsg(`${f.name}: please use an SVG, PDF or PDF-compatible .ai file.`, 'err');
   const r = new FileReader(); r.onload = () => loadSVG(r.result, f.name); r.readAsText(f);
 };
 file.onchange = () => readFile(file.files[0]);
