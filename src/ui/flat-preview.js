@@ -9,7 +9,7 @@ export function drawFlat(svg, m, segs) {
     if (m.depth[f.id] < 0) continue;
     h += `<polygon points="${f.poly.map(p => `${p.x},${-p.y}`).join(' ')}" fill="${f.id === m.root ? '#c8f43c22' : '#ffffff0d'}"/>`;
   }
-  for (const s of segs) {
+  for (const s of [...segs].sort((a, b) => (a.type === 'crease') - (b.type === 'crease'))) { // creases drawn on top
     const crease = s.type === 'crease';
     h += `<line x1="${s.a.x}" y1="${-s.a.y}" x2="${s.b.x}" y2="${-s.b.y}" stroke="${crease ? '#2ee6ff' : '#ff3cf0'}" stroke-width="${sw}"${crease ? ` stroke-dasharray="${sw * 3} ${sw * 2}"` : ''}/>`;
   }

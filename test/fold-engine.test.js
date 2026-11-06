@@ -170,3 +170,13 @@ test('generator rejects bad sizes and writes a mm SVG', () => {
   assert.match(g.svg, /width="[\d.]+mm"/);
   assert.match(g.svg, /#FF00FF/); assert.match(g.svg, /#00FFFF/);
 });
+
+test('panels drawn as separate rectangles with creases on top (common in real dielines)', () => {
+  const g = generateTuckBox({ style: 'rte', L: 50.8, W: 38.1, H: 108, t: 0 }); // 2 x 1.5 x 4.25 inch
+  // every crease edge is ALSO drawn as a cut (each panel outlined), creases dashed over them
+  const both = [...g.segments, ...g.segments.filter(s => s.type === 'crease').map(s => ({ ...s, type: 'cut' }))];
+  for (const order of [both, [...both].reverse()]) {
+    const m = buildModel(order);
+    assert.equal(m.stats.panels, 13); assert.equal(m.stats.hinges, 12);
+  }
+});
