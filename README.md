@@ -30,6 +30,9 @@ src/styles.css
 src/engine/fold-engine.js  panels, hinges, tree (pure JS, no DOM)
 src/engine/fold-animation.js
 src/engine/sample-dieline.js
+src/engine/presets.js      fold presets, lid detection
+src/art/sample-art.js      original sample artwork for any dieline
+src/viewer/camera-moves.js camera paths
 src/svg/parse-svg.js       SVG -> line segments (browser)
 src/viewer/viewer.js       Three.js scene, hinge pivots, camera
 src/ui/flat-preview.js     2D dieline map
@@ -40,10 +43,18 @@ docs/REA-report.md         the reverse-engineering breakdown
 ## Roadmap
 
 - **Phase 1 (done):** SVG import, cut/crease mapping, panel and hinge detection, fold sliders, fold animation.
-- **Phase 2:** exterior and interior artwork, fold presets (closed, lid open, half, tuck in), board thickness, 3 camera moves.
+- **Phase 2 (done):** board thickness (hinges on the inside surface), exterior and interior artwork, sample artwork, fold presets (Flat, Half, Closed, Lid open), 3 camera moves (Showcase orbit, Hero reveal, Top-down reveal) with the lid opening mid-shot.
 - **Phase 3:** 60fps MP4 and 4K PNG export, all 9 camera moves, saved dieline library, BOS "3D proof" integration.
 
-## Known limits (Phase 1)
+## Artwork
+
+Export the print artwork as PNG or JPG at the **same artboard size as the dieline SVG**: same width, height and position, so the art lines up with the panels. The app warns you if the image's shape doesn't match.
+- **Exterior**: the outside print, laid out like the dieline.
+- **Interior**: the inside print. By default it is treated as laid out "as seen from inside" (a mirror of the dieline); untick the box if yours isn't mirrored.
+- You can also drop a PNG/JPG anywhere on the page to set the exterior.
+
+## Known limits
 
 - Holes and windows inside a panel are not cut out yet.
-- Panels have no thickness, so overlapping flaps can flicker slightly.
+- Smaller flaps are layered a fraction of a millimetre inside larger panels to avoid overlap, so a tiny step can show at some creases up close.
+- The lid used for "Lid open" and camera moves is found automatically (the highest horizontal hinge whose panel has its own tuck flap).

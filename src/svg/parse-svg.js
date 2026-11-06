@@ -70,7 +70,8 @@ export function pathSubpaths(d, tmp) {
 
 /**
  * Parse SVG text. Needs a hidden, laid-out host element (not display:none).
- * Returns [{ key, rgb, dashed, polys: [[{x,y}...]] }]
+ * Returns { items: [{ key, rgb, dashed, polys: [[{x,y}...]] }], artboard: {x,y,w,h} }
+ * The artboard (viewBox, in SVG user units) is the area an artwork image must cover.
  */
 export function extractStrokes(text, host) {
   host.innerHTML = text;
@@ -79,6 +80,10 @@ export function extractStrokes(text, host) {
   host.querySelectorAll('script').forEach(n => n.remove());
   const tmp = document.createElementNS(NS, 'path'); svg.appendChild(tmp);
   const rootInv = svg.getScreenCTM().inverse();
+  const vb = svg.viewBox.baseVal;
+  const artboard = vb && vb.width > 0 && vb.height > 0
+    ? { x: vb.x, y: vb.y, w: vb.width, h: vb.height }
+    : { x: 0, y: 0, w: svg.width.baseVal.value || 1000, h: svg.height.baseVal.value || 1000 };
   const out = [];
   svg.querySelectorAll('path,line,polyline,polygon,rect,circle,ellipse').forEach(el => {
     if (el === tmp || el.closest('defs,clipPath,mask,symbol,pattern,marker')) return;
@@ -105,7 +110,7 @@ export function extractStrokes(text, host) {
     out.push({ key: toHex(rgb) + (dashed ? '·dashed' : ''), rgb, dashed, polys });
   });
   host.innerHTML = '';
-  return out;
+  return { items: out, artboard };
 }
 
 /** Turn stroke groups + colour roles into engine segments. */

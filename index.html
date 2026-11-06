@@ -3,12 +3,12 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>REA Fold Lab — Phase 1</title>
+<title>REA Fold Lab — Phase 2</title>
 </head>
 <body>
 <div class="app">
   <aside>
-    <h1>REA Fold Lab <span>· Phase 1</span></h1>
+    <h1>REA Fold Lab <span>· Phase 2</span></h1>
     <div class="sub">Turn a flat dieline into a foldable 3D box.</div>
 
     <h2>1. Dieline</h2>
@@ -25,13 +25,39 @@
     <h2>SVG line colours</h2>
     <div id="colors"><div class="stats">Load a dieline to see its colours.</div></div>
 
-    <h2>2. Fold</h2>
+    <h2>2. Artwork</h2>
+    <div class="art2">
+      <label class="art" id="extBox"><b>Exterior</b><small id="extName">white</small><input type="file" id="extFile" accept="image/png,image/jpeg,image/webp" hidden></label>
+      <label class="art" id="intBox"><b>Interior</b><small id="intName">white</small><input type="file" id="intFile" accept="image/png,image/jpeg,image/webp" hidden></label>
+    </div>
+    <div class="row">
+      <button class="btn" id="sampleArt">Load sample artwork</button>
+      <button class="btn" id="clearArt">Clear</button>
+    </div>
+    <div class="hint">Export artwork (PNG/JPG) at the same artboard size as the dieline SVG so it lines up.</div>
+    <label class="chk"><input type="checkbox" id="intInside" checked> Interior art is laid out as seen from inside</label>
+
+    <h2>3. Fold</h2>
     <div class="slider"><input type="range" id="all" min="0" max="180" value="0"><div class="val" id="allv">0°</div></div>
     <div class="row">
       <button class="btn primary" id="anim">Fold box</button>
-      <button class="btn" id="reset">Flat</button>
     </div>
-    <label class="chk"><input type="checkbox" id="flip"> Fold toward the other side</label>
+    <div class="presets">
+      <button class="btn" data-preset="flat" id="reset">Flat</button>
+      <button class="btn" data-preset="half">Half</button>
+      <button class="btn" data-preset="closed">Closed</button>
+      <button class="btn" data-preset="lidOpen">Lid open</button>
+    </div>
+    <label class="chk"><input type="checkbox" id="flip"> Dieline is drawn from the inside (fold the other way)</label>
+
+    <h2>4. Camera move</h2>
+    <div class="moves">
+      <button class="btn move" data-move="orbit">Showcase orbit</button>
+      <button class="btn move" data-move="hero">Hero reveal</button>
+      <button class="btn move" data-move="topDown">Top-down reveal</button>
+    </div>
+    <label class="chk"><input type="checkbox" id="lidMove" checked> Open &amp; close the lid during the move</label>
+    <div class="hint">Moves start from the closed box. Click the canvas to stop.</div>
 
     <h2>Hinges <span id="hcount"></span></h2>
     <div id="hinges"></div>

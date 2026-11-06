@@ -1,29 +1,36 @@
 import './styles.css';
 import { buildModel, defaultRole } from './engine/fold-engine.js';
 import { anglesAt } from './engine/fold-animation.js';
+import { presetAngles, findLid, lidSwing } from './engine/presets.js';
 import { SAMPLE_SVG } from './engine/sample-dieline.js';
 import { extractStrokes, toSegments, toHex } from './svg/parse-svg.js';
 import { createViewer } from './viewer/viewer.js';
 import { drawFlat, highlightHinge } from './ui/flat-preview.js';
+import { makeSampleArt } from './art/sample-art.js';
 
 const $ = id => document.getElementById(id);
-const state = { name: '', items: [], colors: [], model: null, angles: [], flip: false };
+const state = {
+  name: '', items: [], artboard: null, colors: [], model: null, angles: [], flip: false,
+  art: { exterior: null, interior: null, extName: '', intName: '', intInside: true },
+};
 const viewer = createViewer($('view'));
 
-// ---------- loading ----------
+// ---------- dieline ----------
 function loadSVG(text, name) {
   try {
-    const items = extractStrokes(text, $('svghost'));
+    const { items, artboard } = extractStrokes(text, $('svghost'));
     if (!items.length) throw new Error('No stroked lines found in this SVG.');
     const groups = new Map();
     for (const it of items) {
       if (!groups.has(it.key)) groups.set(it.key, { key: it.key, rgb: it.rgb, dashed: it.dashed, count: 0, role: defaultRole(...it.rgb, it.dashed) });
       groups.get(it.key).count++;
     }
-    Object.assign(state, { name, items, colors: [...groups.values()].sort((a, b) => b.count - a.count) });
+    Object.assign(state, { name, items, artboard, colors: [...groups.values()].sort((a, b) => b.count - a.count) });
     $('anim').textContent = 'Fold box';
+    if (state.art.extName === 'sample exterior') Object.assign(state.art, { exterior: null, interior: null }); // sample art belongs to the old dieline
     renderColors(); rebuild();
-  } catch (e) { showMsg(e.message, 'err'); console.error(e); }
+    return true;
+  } catch (e) { showMsg(e.message, 'err'); console.error(e); return false; }
 }
 
 function rebuild() {
@@ -38,7 +45,7 @@ function rebuild() {
     $('stats').textContent = `${count('crease')} crease · ${count('cut')} cut · ${m.stats.panels} panels · ${m.stats.hinges} hinges`;
     if (m.stats.hinges === 0) showMsg('Found panels but no hinges. Set your fold-line colour to “Crease”.', 'warn');
     else if (m.stats.loosePanels) showMsg(`${m.stats.loosePanels} closed shape(s) aren't joined to the box by a crease (holes or windows); they are hidden.`, 'warn');
-    viewer.setModel(m); applyAngles();
+    viewer.setModel(m, state.artboard); applyArt(); applyAngles();
     drawFlat($('flat'), m, segs); renderHinges(m);
   } catch (e) {
     state.model = null; viewer.clear(); $('hinges').innerHTML = ''; $('flat').innerHTML = '';
@@ -48,7 +55,7 @@ function rebuild() {
 }
 
 function showMsg(t, cls) { const m = $('msg'); m.textContent = t; m.className = 'msg' + (t ? ' ' + cls : ''); }
-function applyAngles() { viewer.setAngles(state.angles, state.flip); }
+function applyAngles(opts) { viewer.setAngles(state.angles, state.flip, opts); }
 
 // ---------- sidebar ----------
 function renderColors() {
@@ -73,7 +80,7 @@ function renderHinges(m) {
       <div class="slider"><input type="range" min="-180" max="180" value="0"><div class="val">0°</div></div>`;
     const r = d.querySelector('input'), v = d.querySelector('.val');
     h.ui = { r, v };
-    r.oninput = () => { state.angles[h.id] = +r.value; v.textContent = r.value + '°'; applyAngles(); };
+    r.oninput = () => { stopAll(); state.angles[h.id] = +r.value; v.textContent = r.value + '°'; applyAngles(); };
     d.onmouseenter = () => highlightHinge($('flat'), h);
     d.onmouseleave = () => highlightHinge($('flat'), null);
     box.appendChild(d);
@@ -94,13 +101,31 @@ function setAll(a) {
   applyAngles(); syncHingeUI();
 }
 
-// ---------- fold animation ----------
+// ---------- fold animation + presets ----------
 let anim = null;
 const stopAnim = () => { if (anim) cancelAnimationFrame(anim); anim = null; };
+function stopAll() { stopAnim(); viewer.stopMove(); }
+
+function animateTo(target, done) {
+  const m = state.model; if (!m) return; stopAll();
+  const from = state.angles.slice(), folding = target.reduce((s, a) => s + a, 0) >= from.reduce((s, a) => s + a, 0);
+  const dur = 1800, t0 = performance.now();
+  const step = now => {
+    const t = Math.min(1, (now - t0) / dur);
+    const out = from.slice();
+    const lerped = anglesAt(m.hinges, from.map(() => 0), 1, t, folding); // 0..1 per hinge
+    m.hinges.forEach(h => (out[h.id] = from[h.id] + (target[h.id] - from[h.id]) * lerped[h.id]));
+    state.angles = out; applyAngles(); syncHingeUI();
+    if (t < 1) anim = requestAnimationFrame(step); else { anim = null; done && done(); }
+  };
+  anim = requestAnimationFrame(step);
+}
+
 $('anim').onclick = () => {
-  const m = state.model; if (!m) return; stopAnim();
+  const m = state.model; if (!m) return;
   const folding = !state.angles.every(a => a >= 89);
   const from = state.angles.slice(), target = folding ? 90 : 0, dur = 2600, t0 = performance.now();
+  stopAll();
   const step = now => {
     const t = Math.min(1, (now - t0) / dur);
     state.angles = anglesAt(m.hinges, from, target, t, folding);
@@ -112,14 +137,90 @@ $('anim').onclick = () => {
   };
   anim = requestAnimationFrame(step);
 };
-$('all').oninput = e => setAll(+e.target.value);
-$('reset').onclick = () => { stopAnim(); setAll(0); $('anim').textContent = 'Fold box'; };
+$('all').oninput = e => { stopAll(); setAll(+e.target.value); };
+document.querySelectorAll('[data-preset]').forEach(b => (b.onclick = () => {
+  if (!state.model) return;
+  const name = b.dataset.preset;
+  animateTo(presetAngles(state.model, name), () => {
+    $('anim').textContent = name === 'closed' ? 'Unfold box' : 'Fold box';
+    const all = { flat: 0, half: 45, closed: 90, lidOpen: 90 }[name];
+    $('all').value = all; $('allv').textContent = all + '°';
+  });
+}));
 $('flip').onchange = e => { state.flip = e.target.checked; applyAngles(); };
+
+// ---------- camera moves ----------
+document.querySelectorAll('[data-move]').forEach(b => (b.onclick = () => {
+  const m = state.model; if (!m) return;
+  const closed = presetAngles(m, 'closed');
+  const lid = $('lidMove').checked ? findLid(m) : null;
+  const start = () => {
+    document.querySelectorAll('.move').forEach(x => x.classList.toggle('on', x === b));
+    if (lid) { // frame the shot around the fully open lid, so it never leaves the picture
+      const s = lidSwing(0.5);
+      state.angles[lid.lid.id] = s.lid; lid.tucks.forEach(k => (state.angles[k.id] = s.tuck));
+      applyAngles({ recenter: false });
+    }
+    viewer.playMove(b.dataset.move, {
+      duration: 6500,
+      onFrame: t => {
+        if (!lid) return;
+        const s = lidSwing(t);
+        state.angles[lid.lid.id] = s.lid; lid.tucks.forEach(k => (state.angles[k.id] = s.tuck));
+        applyAngles({ recenter: false });
+      },
+      onEnd: () => { document.querySelectorAll('.move').forEach(x => x.classList.remove('on')); syncHingeUI(); },
+    });
+  };
+  const isClosed = state.angles.every((a, i) => Math.abs(a - closed[i]) < 0.5);
+  if (isClosed) start(); else animateTo(closed, () => { $('all').value = 90; $('allv').textContent = '90°'; $('anim').textContent = 'Unfold box'; start(); });
+}));
+$('view').addEventListener('pointerdown', () => viewer.playing && viewer.stopMove());
+
+// ---------- artwork ----------
+function applyArt() { viewer.setArtwork(state.art.exterior, state.art.interior, state.art.intInside); renderArtBoxes(); }
+function renderArtBoxes() {
+  for (const [box, name, src, label] of [['extBox', 'extName', state.art.exterior, state.art.extName], ['intBox', 'intName', state.art.interior, state.art.intName]]) {
+    const el = $(box);
+    el.classList.toggle('has', !!src);
+    el.style.backgroundImage = src ? `linear-gradient(#0008,#0008), url(${src instanceof HTMLCanvasElement ? src.toDataURL('image/jpeg', 0.5) : src.src})` : '';
+    $(name).textContent = src ? label : 'white';
+  }
+}
+function readImage(file, slot) {
+  if (!file) return;
+  const url = URL.createObjectURL(file), img = new Image();
+  img.onload = () => {
+    state.art[slot] = img; state.art[slot === 'exterior' ? 'extName' : 'intName'] = file.name;
+    if (state.artboard) {
+      const a = img.width / img.height, b = state.artboard.w / state.artboard.h;
+      if (Math.abs(a / b - 1) > 0.03) showMsg(`${file.name} is ${img.width}×${img.height}; its shape doesn't match the dieline artboard, so the art will be stretched. Export it at the same artboard size as the SVG.`, 'warn');
+    }
+    applyArt();
+  };
+  img.onerror = () => showMsg(`Couldn't read ${file.name} as an image.`, 'err');
+  img.src = url;
+}
+$('extFile').onchange = e => readImage(e.target.files[0], 'exterior');
+$('intFile').onchange = e => readImage(e.target.files[0], 'interior');
+$('sampleArt').onclick = () => {
+  if (!state.model) return;
+  const art = makeSampleArt(state.model, state.artboard);
+  Object.assign(state.art, { exterior: art.exterior, interior: art.interior, extName: 'sample exterior', intName: 'sample kraft', intInside: true });
+  $('intInside').checked = true;
+  applyArt();
+};
+$('clearArt').onclick = () => { Object.assign(state.art, { exterior: null, interior: null }); applyArt(); };
+$('intInside').onchange = e => { state.art.intInside = e.target.checked; applyArt(); };
 
 // ---------- file input ----------
 const drop = $('drop'), file = $('file');
 drop.onclick = () => file.click();
-const readFile = f => { if (!f) return; const r = new FileReader(); r.onload = () => loadSVG(r.result, f.name); r.readAsText(f); };
+const readFile = f => {
+  if (!f) return;
+  if (/^image\/(png|jpe?g|webp)$/.test(f.type)) return readImage(f, 'exterior'); // dropped artwork
+  const r = new FileReader(); r.onload = () => loadSVG(r.result, f.name); r.readAsText(f);
+};
 file.onchange = () => readFile(file.files[0]);
 ['dragenter', 'dragover'].forEach(t => document.addEventListener(t, e => { e.preventDefault(); drop.classList.add('over'); }));
 document.addEventListener('dragleave', e => { e.preventDefault(); if (e.target === document.documentElement) drop.classList.remove('over'); });
