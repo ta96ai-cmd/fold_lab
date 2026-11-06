@@ -50,12 +50,17 @@ function rebuild() {
   const count = role => state.colors.filter(c => c.role === role).reduce((s, c) => s + c.count, 0);
   $('fname').textContent = state.name;
   try {
-    const m = buildModel(segs);
+    let m = buildModel(segs);
+    if (m.stats.hinges === 0) { // panels outlined one by one, folds not marked: use shared edges as folds
+      const auto = buildModel(segs, { autoFolds: true });
+      if (auto.stats.hinges > 0) m = auto;
+    }
     state.model = m; state.angles = m.hinges.map(() => 0);
     $('all').value = 0; $('allv').textContent = '0°';
     const mm = v => Math.round(v * (state.artboard?.mmPerUnit || 0.2646));
     $('stats').textContent = `${count('crease')} crease · ${count('cut')} cut · ${m.stats.panels} panels · ${m.stats.hinges} hinges · sheet ${mm(m.bbox.maxx - m.bbox.minx)} × ${mm(m.bbox.maxy - m.bbox.miny)} mm`;
     if (m.stats.hinges === 0) showMsg('Found panels but no hinges. Set your fold-line colour to “Crease”.', 'warn');
+    else if (m.autoFolds) showMsg('No fold lines found, so every edge shared by two panels is used as a fold. If a flap folds that shouldn’t, set its colours in “SVG line colours”.', 'warn');
     else if (m.stats.loosePanels) showMsg(`${m.stats.loosePanels} closed shape(s) aren't joined to the box by a crease (holes or windows); they are hidden.`, 'warn');
     viewer.setModel(m, state.artboard); applyArt(); applyAngles();
     drawFlat($('flat'), m, segs); renderHinges(m);
