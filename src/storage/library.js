@@ -3,15 +3,17 @@ const DB = 'rea-fold-lab', STORE = 'dielines';
 
 function open() {
   return new Promise((res, rej) => {
-    const r = indexedDB.open(DB, 1);
-    r.onupgradeneeded = () => r.result.createObjectStore(STORE, { keyPath: 'id' });
+    const r = indexedDB.open(DB, 2);
+    r.onupgradeneeded = () => {
+      for (const name of [STORE, 'templates', 'jobs']) if (!r.result.objectStoreNames.contains(name)) r.result.createObjectStore(name, { keyPath: 'id' });
+    };
     r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error);
   });
 }
-async function tx(mode, fn) {
+async function tx(mode, fn, store = STORE) {
   const db = await open();
   return new Promise((res, rej) => {
-    const t = db.transaction(STORE, mode), out = fn(t.objectStore(STORE));
+    const t = db.transaction(store, mode), out = fn(t.objectStore(store));
     t.oncomplete = () => { db.close(); res(out && 'result' in out ? out.result : undefined); };
     t.onerror = () => { db.close(); rej(t.error); };
   });
@@ -26,3 +28,9 @@ export async function saveDieline(entry) {
 export const listDielines = async () => ((await tx('readonly', s => s.getAll())) || []).sort((a, b) => b.savedAt - a.savedAt);
 export const getDieline = id => tx('readonly', s => s.get(id));
 export const deleteDieline = id => tx('readwrite', s => s.delete(id));
+
+// ---------- generic stores (Personalise templates and job versions) ----------
+export const putItem = (store, item) => tx('readwrite', s => s.put(item), store);
+export const getItem = (store, id) => tx('readonly', s => s.get(id), store);
+export const listItems = async store => (await tx('readonly', s => s.getAll(), store)) || [];
+export const deleteItem = (store, id) => tx('readwrite', s => s.delete(id), store);

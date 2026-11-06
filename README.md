@@ -53,11 +53,23 @@ docs/REA-report.md         the reverse-engineering breakdown
 - **Phase 1 (done):** SVG import, cut/crease mapping, panel and hinge detection, fold sliders, fold animation.
 - **Phase 2 (done):** board thickness (hinges on the inside surface), exterior and interior artwork, sample artwork, fold presets (Flat, Half, Closed, Lid open), 3 camera moves (Showcase orbit, Hero reveal, Top-down reveal) with the lid opening mid-shot.
 - **Phase 3 (done):** PNG export (1080p, 4K, square, vertical; fit-to-frame; transparent background), MP4 export (H.264, 30/60fps, landscape / vertical Reels / square, rendered frame by frame), all 9 camera moves, "My dielines" library saved in the browser.
+- **v0.8 (done):** Personalise tab: upload a client template PDF (stored only in your browser), mark designs and logo zones, drop in a client logo (PDF/SVG/PNG/JPG) with a resolution and colour report, keep colours or print single-colour CMYK, add finishes as per order (gold/silver/rose foil, spot UV, emboss, deboss as spot-colour plates), generate a print-ready PDF (artwork + one plate per finish + KLD + instructions page) with automatic versions V1, V2...
 - **v0.7 (done):** style gallery (categories, search, thumbnails, style codes); size modes inside / die-cut / outside; units mm, cm, inch, 1/64 inch; board caliper in mm or pt; statistics (cut and crease line length, board used, rectangle, utilisation; per-sheet cut/crease metres). See docs/REA-packmage.md.
 - **v0.6 (done):** Dieline Maker tab: 7 parametric styles (reverse tuck end, straight tuck end, auto-lock bottom, seal end, sleeve, tray with lid, roll-end mailer), mm/inch, dimensions, panel labels, bleed and safe-area guides, SVG / PDF (CutContour + Crease spot colours, layers) / DXF (layers) export, sheet nesting with sheet PDF/DXF, Fold in 3D with correct closing angles (e.g. 180° roll-over walls).
 - **v0.5 (done):** PDF and PDF-compatible .ai import, collapsible sidebar sections.
 - **v0.4 (done):** dieline generator (reverse tuck end, straight tuck end) from inside size + board thickness; dieline SVG download; 3D model (.glb) export at real size for Blender; sheet size shown in mm.
 - **Next:** auto-lock bottom, tray and sleeve styles; PDF/DXF dieline export; BOS "3D proof" integration; holes and windows in panels.
+
+## Personalise
+
+1. **Template:** upload the template PDF (export it from CorelDRAW as PDF). It stays in your browser only; it is never uploaded or committed.
+2. **+ Add design:** drag a rectangle round one piece (the area that will be printed), then drag the logo zone inside it. Repeat for each design on the sheet. **Save template.**
+3. **Job:** client name, campaign, quantity, file prefix.
+4. **Logo:** drop the client file. The report shows vector or raster, effective dpi, colours and transparency, with warnings (for example low resolution).
+5. **As per order:** keep logo colours or pick one CMYK colour; set the logo size in the zone; tick the finishes this order needs.
+6. **Generate:** downloads `PREFIX_DATE_CAMPAIGN_CLIENT_TEMPLATE-DESIGN_ARTWORK_Vn.pdf`. Generating again for the same job makes the next version.
+
+Each finish is a separate page with a 100% spot colour (Foil_Gold, Spot_UV, ...) in exactly the logo shape, all pages the same size so they register. The KLD page has the die lines in the CutContour spot colour.
 
 ## Artwork
 

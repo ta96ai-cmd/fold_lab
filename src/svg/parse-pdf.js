@@ -3,7 +3,7 @@
 // Fills, text and images are ignored: only stroked paths become lines.
 
 let pdfjsPromise = null;
-async function loadPdfjs() {
+export async function loadPdfjs() {
   // Loaded only when a PDF is opened. Running the worker on the main thread keeps
   // everything inside one HTML file (no separate worker file to host).
   if (!pdfjsPromise) pdfjsPromise = (async () => {
@@ -33,11 +33,11 @@ function toRGB(args) {
  * Walk a pdf.js operator list. Returns stroked polylines in page coordinates (points, y down)
  * as [{ rgb, dashed, polys: [[[x, y], ...]] }].
  */
-export function strokesFromOperatorList(OPS, ol, viewTransform, isGuideLayer = () => false) {
+export function strokesFromOperatorList(OPS, ol, viewTransform, isGuideLayer = () => false, { fills = false } = {}) {
   const out = [];
   const mc = []; // marked-content stack: true = inside a guide layer (bleed, safe, dimensions, labels)
   const hidden = () => mc.includes(true);
-  let st = { ctm: [1, 0, 0, 1, 0, 0], rgb: [0, 0, 0], dashed: false };
+  let st = { ctm: [1, 0, 0, 1, 0, 0], rgb: [0, 0, 0], fill: [0, 0, 0], dashed: false };
   const stack = [];
   let subs = [], sub = null, cur = [0, 0], start = [0, 0];
   const pt = (x, y) => apply(viewTransform, ...apply(st.ctm, x, y));
@@ -59,6 +59,8 @@ export function strokesFromOperatorList(OPS, ol, viewTransform, isGuideLayer = (
       case OPS.paintFormXObjectBegin: stack.push({ ...st }); if (args[0]) st = { ...st, ctm: mul(st.ctm, args[0]) }; break;
       case OPS.paintFormXObjectEnd: if (stack.length) st = stack.pop(); break;
       case OPS.setStrokeRGBColor: st = { ...st, rgb: toRGB(args) }; break;
+      case OPS.setFillRGBColor: st = { ...st, fill: toRGB(args) }; break;
+      case OPS.setFillGray: { const g = Math.round(Number(args[0]) * (Number(args[0]) <= 1 ? 255 : 1)); st = { ...st, fill: [g, g, g] }; break; }
       case OPS.setStrokeGray: { const g = Math.round(Number(args[0]) * (Number(args[0]) <= 1 ? 255 : 1)); st = { ...st, rgb: [g, g, g] }; break; }
       case OPS.setDash: st = { ...st, dashed: !!(args[0] && args[0].length && args[0].some(v => v > 0)) }; break;
       case OPS.setGState:
@@ -88,14 +90,21 @@ export function strokesFromOperatorList(OPS, ol, viewTransform, isGuideLayer = (
       case OPS.fillStroke: case OPS.eoFillStroke: case OPS.closeFillStroke: case OPS.closeEOFillStroke: {
         if (hidden()) { subs = []; sub = null; break; }
         const closing = fn === OPS.closeStroke || fn === OPS.closeFillStroke || fn === OPS.closeEOFillStroke;
+        if (fills && fn !== OPS.stroke && fn !== OPS.closeStroke) {
+          const fp = subs.filter(p => p.length > 2);
+          if (fp.length) out.push({ kind: 'fill', rgb: st.fill, evenodd: fn === OPS.eoFillStroke || fn === OPS.closeEOFillStroke, polys: fp.map(p => p.slice()) });
+        }
         const polys = subs.filter(p => p.length > 1 || closing).map(p => (closing && p.length > 1 ? [...p, p[0]] : p)).filter(p => p.length > 1);
         if (polys.length) out.push({ rgb: st.rgb, dashed: st.dashed, polys });
         subs = []; sub = null;
         break;
       }
-      case OPS.fill: case OPS.eoFill: case OPS.endPath: case OPS.clip: case OPS.eoClip:
-        if (fn !== OPS.clip && fn !== OPS.eoClip) { subs = []; sub = null; }
+      case OPS.fill: case OPS.eoFill:
+        if (fills && !hidden()) { const fp = subs.filter(p => p.length > 2); if (fp.length) out.push({ kind: 'fill', rgb: st.fill, evenodd: fn === OPS.eoFill, polys: fp }); }
+        subs = []; sub = null;
         break;
+      case OPS.endPath: subs = []; sub = null; break;
+      case OPS.clip: case OPS.eoClip: break;
       default: break;
     }
   }

@@ -14,6 +14,7 @@ import { exportVideo, videoSupported } from './export/video.js';
 import { download, safeName } from './export/download.js';
 import { saveDieline, listDielines, getDieline, deleteDieline } from './storage/library.js';
 import { initMaker } from './ui/maker.js';
+import { initPersonalise } from './ui/personalise.js';
 import { exportGLB } from './export/glb.js';
 import { makeCollapsible } from './ui/collapsible.js';
 import { pdfToDielineSVG } from './svg/parse-pdf.js';
@@ -289,10 +290,13 @@ $('saveGlb').onclick = async () => {
 };
 
 // ---------- tabs + Dieline Maker ----------
+let pers = null;
 function showTab(name) {
   document.querySelectorAll('.tab').forEach(t => t.classList.toggle('on', t.dataset.tab === name));
-  $('foldApp').hidden = name !== 'fold'; $('makerApp').hidden = name !== 'maker';
+  $('foldApp').hidden = name !== 'fold'; $('makerApp').hidden = name !== 'maker'; $('persApp').hidden = name !== 'pers';
   if (name === 'maker') maker.refresh();
+  if (name === 'pers' && !pers) pers = initPersonalise();
+  window.__pers = pers;
 }
 document.querySelectorAll('.tab').forEach(t => (t.onclick = () => showTab(t.dataset.tab)));
 $('genToggle').onclick = () => showTab('maker');

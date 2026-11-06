@@ -130,3 +130,34 @@
   .g-card .code { float:right; color:var(--accent); font:600 11px ui-monospace, monospace; }
   .stat { display:grid; grid-template-columns:1fr auto; gap:2px 10px; margin-top:8px; font-size:12px; color:#cfcfcf; }
   .stat span:nth-child(even) { text-align:right; font-family:ui-monospace, monospace; color:var(--text); }
+  .field { display:flex; flex-direction:column; gap:4px; font-size:12px; color:#cfcfcf; margin-top:4px; }
+  .field select, .grid3 input:not([type=number]), .grid3 input { background:#232323; color:var(--text); border:1px solid #333; border-radius:6px; padding:6px; font:inherit; }
+  .grid3.two { grid-template-columns:1fr 1fr; } .grid3.four { grid-template-columns:repeat(4, 1fr); }
+  .drop small { display:block; }
+  #psTplDrop, #psLogoDrop { margin-top:8px; padding:12px; }
+  .ps-design { background:#1b1b1b; border:1px solid var(--line); border-radius:8px; padding:7px; margin-top:6px; display:grid; grid-template-columns:1fr auto auto auto; gap:5px; align-items:center; }
+  .ps-design input { background:#232323; color:var(--text); border:1px solid #333; border-radius:6px; padding:4px 6px; font:inherit; min-width:0; }
+  .ps-design .btn { padding:4px 7px; font-size:11px; }
+  .ps-design small { grid-column:1 / -1; color:var(--muted); font-size:11px; }
+  .ps-report { margin-top:10px; background:#1b1b1b; border:1px solid var(--line); border-radius:10px; padding:10px; font-size:12px; }
+  .ps-report .lg { height:90px; border-radius:6px; margin-bottom:8px; display:grid; place-items:center;
+    background:repeating-conic-gradient(#2a2a2a 0 25%, #333 0 50%) 0 0/14px 14px; }
+  .ps-report .lg img { max-height:80px; max-width:95%; }
+  .ps-report .stat { margin-top:4px; }
+  .ps-report .sw2 { display:inline-flex; align-items:center; gap:4px; margin:2px 6px 2px 0; font:11px ui-monospace, monospace; }
+  .ps-report .sw2 i { width:12px; height:12px; border-radius:3px; display:inline-block; border:1px solid #0006; }
+  .ps-report .w { margin-top:6px; padding:6px 8px; border-radius:6px; font-size:11.5px; }
+  .ps-report .w.err { background:#2a1414; color:#ffb4b4; } .ps-report .w.warn { background:#2a2414; color:#ffe1a0; } .ps-report .w.info { background:#14202a; color:#b4d8ff; }
+  .swatches { display:flex; gap:6px; flex-wrap:wrap; margin:8px 0 4px; }
+  .swatches button { display:flex; align-items:center; gap:5px; background:#1b1b1b; border:1px solid #333; color:#cfcfcf; border-radius:999px; padding:3px 9px 3px 4px; font:inherit; font-size:11.5px; cursor:pointer; }
+  .swatches i { width:14px; height:14px; border-radius:50%; display:inline-block; }
+  .ps-result { margin-top:10px; background:#1b1f10; border:1px solid #3d4a1a; border-radius:10px; padding:10px; font-size:12px; }
+  .ps-result .fn { font:600 11.5px ui-monospace, monospace; word-break:break-all; color:var(--accent); margin-bottom:8px; }
+  .ps-result .thumbs { display:grid; grid-template-columns:repeat(3, 1fr); gap:6px; margin-top:8px; }
+  .ps-result .thumbs figure { margin:0; } .ps-result .thumbs img { width:100%; background:#fff; border-radius:4px; display:block; }
+  .ps-result figcaption { font-size:10.5px; color:var(--muted); margin-top:2px; }
+  #psStage { position:relative; line-height:0; box-shadow:0 4px 30px #0008; background:#fff; }
+  #psStage canvas { display:block; width:100%; height:100%; }
+  #psOverlay { position:absolute; inset:0; width:100%; height:100%; cursor:crosshair; }
+  .ps-empty { color:var(--muted); font-size:14px; }
+  .ps-mode { color:var(--accent); font-size:12.5px; align-self:center; }
