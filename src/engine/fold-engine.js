@@ -62,7 +62,7 @@ export function buildModel(segsIn, opt = {}) {
       if (prev !== null && prev !== id) {
         const k = prev < id ? prev + '_' + id : id + '_' + prev;
         if (!edgeMap.has(k)) { edgeMap.set(k, edges.length); edges.push({ u: prev, v: id, type: s.type }); }
-        else if (s.type === 'cut') edges[edgeMap.get(k)].type = 'cut';
+        else if (s.type === 'crease') edges[edgeMap.get(k)].type = 'crease'; // a crease drawn over a cut line wins (many dielines outline every panel)
       }
       prev = id;
     }
