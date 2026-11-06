@@ -35,7 +35,12 @@ src/art/sample-art.js      original sample artwork for any dieline
 src/viewer/camera-moves.js 9 camera paths
 src/export/                image + MP4 export, sizes, download
 src/storage/library.js     saved dielines (IndexedDB)
-src/generator/tuck-box.js  parametric tuck-end dielines
+src/generator/core.js      pieces + explicit creases -> cut/crease lines
+src/generator/styles.js    7 parametric box styles
+src/generator/writers.js   SVG, PDF (spot colours, layers), DXF
+src/generator/guides.js    bleed and safe area (Clipper offsets)
+src/generator/nesting.js   sheet layout
+src/ui/maker.js            Dieline Maker tab
 src/svg/parse-svg.js       SVG -> line segments (browser)
 src/viewer/viewer.js       Three.js scene, hinge pivots, camera
 src/ui/flat-preview.js     2D dieline map
@@ -48,6 +53,7 @@ docs/REA-report.md         the reverse-engineering breakdown
 - **Phase 1 (done):** SVG import, cut/crease mapping, panel and hinge detection, fold sliders, fold animation.
 - **Phase 2 (done):** board thickness (hinges on the inside surface), exterior and interior artwork, sample artwork, fold presets (Flat, Half, Closed, Lid open), 3 camera moves (Showcase orbit, Hero reveal, Top-down reveal) with the lid opening mid-shot.
 - **Phase 3 (done):** PNG export (1080p, 4K, square, vertical; fit-to-frame; transparent background), MP4 export (H.264, 30/60fps, landscape / vertical Reels / square, rendered frame by frame), all 9 camera moves, "My dielines" library saved in the browser.
+- **v0.6 (done):** Dieline Maker tab: 7 parametric styles (reverse tuck end, straight tuck end, auto-lock bottom, seal end, sleeve, tray with lid, roll-end mailer), mm/inch, dimensions, panel labels, bleed and safe-area guides, SVG / PDF (CutContour + Crease spot colours, layers) / DXF (layers) export, sheet nesting with sheet PDF/DXF, Fold in 3D with correct closing angles (e.g. 180° roll-over walls).
 - **v0.5 (done):** PDF and PDF-compatible .ai import, collapsible sidebar sections.
 - **v0.4 (done):** dieline generator (reverse tuck end, straight tuck end) from inside size + board thickness; dieline SVG download; 3D model (.glb) export at real size for Blender; sheet size shown in mm.
 - **Next:** auto-lock bottom, tray and sleeve styles; PDF/DXF dieline export; BOS "3D proof" integration; holes and windows in panels.
@@ -59,11 +65,25 @@ Export the print artwork as PNG or JPG at the **same artboard size as the dielin
 - **Interior**: the inside print. By default it is treated as laid out "as seen from inside" (a mirror of the dieline); untick the box if yours isn't mirrored.
 - You can also drop a PNG/JPG anywhere on the page to set the exterior.
 
-## Create a dieline
+## Dieline Maker
 
-Click **Create dieline…**, pick a style and enter the **inside** size in mm (L × W × H), board thickness, glue flap and tuck flap. **Create & fold** draws the dieline (magenta cut, cyan crease) and folds it. Export → **Dieline SVG** saves it at true mm scale.
+Open the **Dieline Maker** tab, pick a style and enter the **inside** size (mm or inch). The dieline updates live.
 
-Allowances used: every panel = inside size + board thickness; lid depth = W + board. These are common starting values, not a die-maker's spec: always check the first physical sample.
+| Style | Notes |
+|---|---|
+| Reverse / straight tuck end | Lid + tuck flap, dust flaps |
+| Auto-lock (crash-lock) bottom | Tuck top; bottom lock flaps with 45° glue-assist creases (flat when closed) |
+| Seal end | Major/minor flaps glued at both ends; set the major-flap overlap |
+| Sleeve | 4 panels + glue flap, open ends |
+| Tray with lid | Two pieces on one sheet; lid = tray + 2 × board + clearance |
+| Mailer (roll end, front tuck) | Double front and side walls (roll over 180°), ears, lid with front tuck and dust flaps |
+
+- **Show:** dimensions, panel labels, bleed (default 3 mm) and safe area (default 3 mm).
+- **Export:** SVG; PDF at true size with spot colours **CutContour** and **Crease** and one layer per kind (Cut, Crease, Bleed, Safe area, Dimensions, Labels); DXF (R12, mm) with layers CUT, CREASE, BLEED, SAFE, DIMENSIONS, LABELS.
+- **Sheet layout:** choose a sheet (18×23 … 28×40 in, SRA3, A2, B1 or custom), gutter and gripper margin; see how many fit (upright and rotated) and the share of the sheet used; export the sheet as PDF or DXF.
+- **Fold in 3D:** opens the box in the 3D tab with the right closing angles. The SVG/PDF page is also the artwork template: artwork exported at that page size lines up in 3D.
+
+Allowances: panel = inside size + board; lid depth = W + board; tray lid = tray + 2 × board + clearance. These are common starting values for proofs. Check the first physical sample with your die-maker before cutting a die.
 
 ## Export
 

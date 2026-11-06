@@ -13,7 +13,7 @@ import { exportImage } from './export/image.js';
 import { exportVideo, videoSupported } from './export/video.js';
 import { download, safeName } from './export/download.js';
 import { saveDieline, listDielines, getDieline, deleteDieline } from './storage/library.js';
-import { BOX_STYLES, DEFAULT_BOX, generateTuckBox } from './generator/tuck-box.js';
+import { initMaker } from './ui/maker.js';
 import { exportGLB } from './export/glb.js';
 import { makeCollapsible } from './ui/collapsible.js';
 import { pdfToDielineSVG } from './svg/parse-pdf.js';
@@ -50,9 +50,10 @@ function rebuild() {
   const count = role => state.colors.filter(c => c.role === role).reduce((s, c) => s + c.count, 0);
   $('fname').textContent = state.name;
   try {
-    let m = buildModel(segs);
+    const bopt = { rootPoint: state.artboard?.rootPoint };
+    let m = buildModel(segs, bopt);
     if (m.stats.hinges === 0) { // panels outlined one by one, folds not marked: use shared edges as folds
-      const auto = buildModel(segs, { autoFolds: true });
+      const auto = buildModel(segs, { ...bopt, autoFolds: true });
       if (auto.stats.hinges > 0) m = auto;
     }
     state.model = m; state.angles = m.hinges.map(() => 0);
@@ -62,7 +63,7 @@ function rebuild() {
     if (m.stats.hinges === 0) showMsg('Found panels but no hinges. Set your fold-line colour to “Crease”.', 'warn');
     else if (m.autoFolds) showMsg('No fold lines found, so every edge shared by two panels is used as a fold. If a flap folds that shouldn’t, set its colours in “SVG line colours”.', 'warn');
     else if (m.stats.loosePanels) showMsg(`${m.stats.loosePanels} closed shape(s) aren't joined to the box by a crease (holes or windows); they are hidden.`, 'warn');
-    viewer.setModel(m, state.artboard); applyArt(); applyAngles();
+    viewer.setModel(m, state.artboard, { floor: !!state.artboard?.floor }); applyArt(); applyAngles();
     drawFlat($('flat'), m, segs); renderHinges(m);
   } catch (e) {
     state.model = null; viewer.clear(); $('hinges').innerHTML = ''; $('flat').innerHTML = '';
@@ -140,8 +141,9 @@ function animateTo(target, done) {
 
 $('anim').onclick = () => {
   const m = state.model; if (!m) return;
-  const folding = !state.angles.every(a => a >= 89);
-  const from = state.angles.slice(), target = folding ? 90 : 0, dur = 2600, t0 = performance.now();
+  const closed = presetAngles(m, 'closed');
+  const folding = !state.angles.every((a, i) => Math.abs(a - closed[i]) < 1);
+  const from = state.angles.slice(), target = folding ? closed : closed.map(() => 0), dur = 2600, t0 = performance.now();
   stopAll();
   const step = now => {
     const t = Math.min(1, (now - t0) / dur);
@@ -286,20 +288,20 @@ $('saveGlb').onclick = async () => {
   catch (e) { showMsg('Could not export the 3D model: ' + e.message, 'err'); }
 };
 
-// ---------- dieline generator ----------
-for (const [k, v] of Object.entries(BOX_STYLES)) $('gStyle').add(new Option(v.label, k));
-const genFields = { L: 'gL', W: 'gW', H: 'gH', t: 'gT', glue: 'gG', tuck: 'gK' };
-for (const [k, id] of Object.entries(genFields)) $(id).value = DEFAULT_BOX[k];
-$('genToggle').onclick = () => { $('gen').hidden = !$('gen').hidden; };
-$('gMake').onclick = () => {
-  const p = { style: $('gStyle').value };
-  for (const [k, id] of Object.entries(genFields)) p[k] = parseFloat($(id).value);
-  try {
-    const g = generateTuckBox(p);
-    const name = `${p.style.toUpperCase()}_${p.L}x${p.W}x${p.H}.svg`;
-    if (loadSVG(g.svg, name)) animateTo(presetAngles(state.model, 'closed'), () => { $('all').value = 90; $('allv').textContent = '90°'; $('anim').textContent = 'Unfold box'; });
-  } catch (e) { showMsg(e.message, 'err'); }
-};
+// ---------- tabs + Dieline Maker ----------
+function showTab(name) {
+  document.querySelectorAll('.tab').forEach(t => t.classList.toggle('on', t.dataset.tab === name));
+  $('foldApp').hidden = name !== 'fold'; $('makerApp').hidden = name !== 'maker';
+  if (name === 'maker') maker.refresh();
+}
+document.querySelectorAll('.tab').forEach(t => (t.onclick = () => showTab(t.dataset.tab)));
+$('genToggle').onclick = () => showTab('maker');
+const maker = initMaker({
+  onFold: (svg, name) => {
+    showTab('fold');
+    if (loadSVG(svg, name)) animateTo(presetAngles(state.model, 'closed'), () => { $('all').value = 90; $('allv').textContent = '90°'; $('anim').textContent = 'Unfold box'; });
+  },
+});
 
 // ---------- my dielines ----------
 const canvasBlob = c => new Promise(r => c.toBlob(r, 'image/jpeg', 0.92));

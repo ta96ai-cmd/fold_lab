@@ -7,7 +7,7 @@ export function drawFlat(svg, m, segs) {
   let h = '';
   for (const f of m.faces) {
     if (m.depth[f.id] < 0) continue;
-    h += `<polygon points="${f.poly.map(p => `${p.x},${-p.y}`).join(' ')}" fill="${f.id === m.root ? '#c8f43c22' : '#ffffff0d'}"/>`;
+    h += `<polygon points="${f.poly.map(p => `${p.x},${-p.y}`).join(' ')}" fill="${(m.roots || [m.root]).includes(f.id) ? '#c8f43c22' : '#ffffff0d'}"/>`;
   }
   for (const s of [...segs].sort((a, b) => (a.type === 'crease') - (b.type === 'crease'))) { // creases drawn on top
     const crease = s.type === 'crease';

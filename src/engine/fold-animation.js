@@ -10,7 +10,8 @@ export function anglesAt(hinges, from, target, t, folding) {
     const lvl = folding ? h.depth - 1 : maxD - h.depth;
     const start = maxD > 1 ? (lvl / (maxD - 1)) * 0.45 : 0;
     const k = ease(Math.min(1, Math.max(0, (t - start) / 0.55)));
-    out[h.id] = from[h.id] + (target - from[h.id]) * k;
+    const tg = Array.isArray(target) ? target[h.id] : target;
+    out[h.id] = from[h.id] + (tg - from[h.id]) * k;
   }
   return out;
 }

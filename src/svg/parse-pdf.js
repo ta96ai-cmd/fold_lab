@@ -33,8 +33,10 @@ function toRGB(args) {
  * Walk a pdf.js operator list. Returns stroked polylines in page coordinates (points, y down)
  * as [{ rgb, dashed, polys: [[[x, y], ...]] }].
  */
-export function strokesFromOperatorList(OPS, ol, viewTransform) {
+export function strokesFromOperatorList(OPS, ol, viewTransform, isGuideLayer = () => false) {
   const out = [];
+  const mc = []; // marked-content stack: true = inside a guide layer (bleed, safe, dimensions, labels)
+  const hidden = () => mc.includes(true);
   let st = { ctm: [1, 0, 0, 1, 0, 0], rgb: [0, 0, 0], dashed: false };
   const stack = [];
   let subs = [], sub = null, cur = [0, 0], start = [0, 0];
@@ -79,8 +81,12 @@ export function strokesFromOperatorList(OPS, ol, viewTransform) {
         }
         break;
       }
+      case OPS.beginMarkedContent: mc.push(false); break;
+      case OPS.beginMarkedContentProps: mc.push(args && args[0] === 'OC' && args[1] && isGuideLayer(args[1].id)); break;
+      case OPS.endMarkedContent: mc.pop(); break;
       case OPS.stroke: case OPS.closeStroke:
       case OPS.fillStroke: case OPS.eoFillStroke: case OPS.closeFillStroke: case OPS.closeEOFillStroke: {
+        if (hidden()) { subs = []; sub = null; break; }
         const closing = fn === OPS.closeStroke || fn === OPS.closeFillStroke || fn === OPS.closeEOFillStroke;
         const polys = subs.filter(p => p.length > 1 || closing).map(p => (closing && p.length > 1 ? [...p, p[0]] : p)).filter(p => p.length > 1);
         if (polys.length) out.push({ rgb: st.rgb, dashed: st.dashed, polys });
@@ -123,7 +129,9 @@ export async function pdfToDielineSVG(bytes, name = 'file.pdf') {
   const page = await doc.getPage(1);
   const vp = page.getViewport({ scale: 1 });
   const ol = await page.getOperatorList();
-  const strokes = strokesFromOperatorList(pdfjs.OPS, ol, vp.transform);
+  let cfg = null; try { cfg = await doc.getOptionalContentConfig(); } catch { /* no layers */ }
+  const isGuide = id => { try { return /bleed|safe|dimension|label|guide|artwork|text/i.test(cfg?.getGroup(id)?.name || ''); } catch { return false; } };
+  const strokes = strokesFromOperatorList(pdfjs.OPS, ol, vp.transform, isGuide);
   if (!strokes.length) throw new Error(`No stroked lines found on page 1 of ${name}. The dieline may be a filled shape or an image; export it with the cut and crease lines as strokes.`);
   return { svg: strokesToSVG(strokes, vp.width, vp.height, `Converted from ${name} (page 1 of ${doc.numPages}) by REA Fold Lab`), strokes, pages: doc.numPages };
 }

@@ -85,9 +85,13 @@ export function extractStrokes(text, host) {
     ? { x: vb.x, y: vb.y, w: vb.width, h: vb.height }
     : { x: 0, y: 0, w: svg.width.baseVal.value || 1000, h: svg.height.baseVal.value || 1000 };
   artboard.mmPerUnit = mmPerUnit(svg.getAttribute('width'), artboard.w);
+  // 3D hints written by the Dieline Maker: which panel faces the camera / is the floor
+  const rootAttr = (svg.getAttribute('data-rea-root') || '').split(/[\s,]+/).map(Number);
+  if (rootAttr.length === 2 && rootAttr.every(Number.isFinite)) artboard.rootPoint = { x: rootAttr[0], y: -rootAttr[1] };
+  artboard.floor = svg.getAttribute('data-rea-floor') === '1';
   const out = [];
   svg.querySelectorAll('path,line,polyline,polygon,rect,circle,ellipse').forEach(el => {
-    if (el === tmp || el.closest('defs,clipPath,mask,symbol,pattern,marker')) return;
+    if (el === tmp || el.closest('defs,clipPath,mask,symbol,pattern,marker,[data-rea-ignore]')) return;
     const cs = getComputedStyle(el);
     if (cs.display === 'none' || cs.visibility === 'hidden') return;
     const rgb = parseColor(cs.stroke || '');
@@ -108,7 +112,8 @@ export function extractStrokes(text, host) {
     } else if (tag === 'path') polys = pathSubpaths(el.getAttribute('d') || '', tmp);
     const M = rootInv.multiply(el.getScreenCTM());
     polys = polys.map(p => p.map(([x, y]) => { const q = new DOMPoint(x, y).matrixTransform(M); return { x: q.x, y: -q.y }; }));
-    out.push({ key: toHex(rgb) + (dashed ? '·dashed' : ''), rgb, dashed, polys });
+    const fold = el.hasAttribute('data-fold') ? parseFloat(el.getAttribute('data-fold')) : undefined;
+    out.push({ key: toHex(rgb) + (dashed ? '·dashed' : ''), rgb, dashed, polys, fold, hinge: el.getAttribute('data-hinge') || undefined });
   });
   host.innerHTML = '';
   return { items: out, artboard };
@@ -127,7 +132,7 @@ export function toSegments(items, roleByKey) {
   const segs = [];
   for (const it of items) {
     const r = roleByKey.get(it.key); if (!r || r === 'ignore') continue;
-    for (const p of it.polys) for (let k = 0; k < p.length - 1; k++) segs.push({ a: p[k], b: p[k + 1], type: r });
+    for (const p of it.polys) for (let k = 0; k < p.length - 1; k++) segs.push({ a: p[k], b: p[k + 1], type: r, fold: it.fold, role: it.hinge });
   }
   return segs;
 }

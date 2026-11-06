@@ -61,8 +61,8 @@ export function buildModel(segsIn, opt = {}) {
       const id = vid({ x: s.a.x + t * (s.b.x - s.a.x), y: s.a.y + t * (s.b.y - s.a.y) });
       if (prev !== null && prev !== id) {
         const k = prev < id ? prev + '_' + id : id + '_' + prev;
-        if (!edgeMap.has(k)) { edgeMap.set(k, edges.length); edges.push({ u: prev, v: id, type: s.type }); }
-        else if (s.type === 'crease') edges[edgeMap.get(k)].type = 'crease'; // a crease drawn over a cut line wins (many dielines outline every panel)
+        if (!edgeMap.has(k)) { edgeMap.set(k, edges.length); edges.push({ u: prev, v: id, type: s.type, fold: s.fold, role: s.role }); }
+        else if (s.type === 'crease') Object.assign(edges[edgeMap.get(k)], { type: 'crease', fold: s.fold ?? edges[edgeMap.get(k)].fold, role: s.role ?? edges[edgeMap.get(k)].role }); // a crease drawn over a cut line wins (many dielines outline every panel)
       }
       prev = id;
     }
@@ -123,7 +123,9 @@ export function buildModel(segsIn, opt = {}) {
     if (f1 < 0 || f2 < 0 || f1 === f2) return;
     const k = Math.min(f1, f2) + '_' + Math.max(f1, f2);
     if (!pairMap.has(k)) pairMap.set(k, { f1: Math.min(f1, f2), f2: Math.max(f1, f2), pts: [] });
-    pairMap.get(k).pts.push(verts[e.u], verts[e.v]);
+    const pr = pairMap.get(k);
+    pr.pts.push(verts[e.u], verts[e.v]);
+    if (e.type === 'crease') { if (e.fold !== undefined) pr.fold = e.fold; if (e.role) pr.role = e.role; }
   });
   const adj = faces.map(() => []);
   for (const p of pairMap.values()) {
@@ -134,34 +136,48 @@ export function buildModel(segsIn, opt = {}) {
       const t = (q.x - p.pts[0].x) * d.x + (q.y - p.pts[0].y) * d.y;
       if (t < lo) { lo = t; lp = q; } if (t > hi) { hi = t; hp = q; }
     }
-    adj[p.f1].push({ other: p.f2, a: lp, b: hp });
-    adj[p.f2].push({ other: p.f1, a: lp, b: hp });
+    adj[p.f1].push({ other: p.f2, a: lp, b: hp, fold: p.fold, role: p.role });
+    adj[p.f2].push({ other: p.f1, a: lp, b: hp, fold: p.fold, role: p.role });
   }
 
   // 6. spanning tree from largest panel
   if (!faces.length) throw new Error('No closed panels found. Check that cut lines form a closed outline.');
+  // root: the panel containing opt.rootPoint (y-up), else the largest panel
   let root = 0;
   faces.forEach(f => { if (f.area > faces[root].area) root = f.id; });
+  if (opt.rootPoint) {
+    const hit = faces.filter(f => pointInPoly(opt.rootPoint, f.poly)).sort((a, b) => a.area - b.area)[0];
+    if (hit) root = hit.id;
+  }
   const parent = faces.map(() => -1), depth = faces.map(() => -1);
-  const hinges = [];
-  depth[root] = 0;
-  const queue = [root];
-  while (queue.length) {
-    const f = queue.shift();
-    for (const n of adj[f]) {
-      if (depth[n.other] >= 0) continue;
-      depth[n.other] = depth[f] + 1; parent[n.other] = f;
-      const dir = { x: n.b.x - n.a.x, y: n.b.y - n.a.y };
-      const L = Math.hypot(dir.x, dir.y); dir.x /= L; dir.y /= L;
-      const c = faces[n.other].centroid;
-      const cross = dir.x * (c.y - n.a.y) - dir.y * (c.x - n.a.x);
-      hinges.push({ id: hinges.length, parent: f, child: n.other, a: n.a, b: n.b, dir, sign: cross > 0 ? -1 : 1, depth: depth[n.other] });
-      queue.push(n.other);
+  const hinges = [], roots = [];
+  const grow = r => {
+    roots.push(r); depth[r] = 0;
+    const queue = [r];
+    while (queue.length) {
+      const f = queue.shift();
+      for (const n of adj[f]) {
+        if (depth[n.other] >= 0) continue;
+        depth[n.other] = depth[f] + 1; parent[n.other] = f;
+        const dir = { x: n.b.x - n.a.x, y: n.b.y - n.a.y };
+        const L = Math.hypot(dir.x, dir.y); dir.x /= L; dir.y /= L;
+        const c = faces[n.other].centroid;
+        const cross = dir.x * (c.y - n.a.y) - dir.y * (c.x - n.a.x);
+        hinges.push({ id: hinges.length, parent: f, child: n.other, a: n.a, b: n.b, dir, sign: cross > 0 ? -1 : 1, depth: depth[n.other], closed: n.fold ?? 90, role: n.role });
+        queue.push(n.other);
+      }
     }
+  };
+  grow(root);
+  // separate parts on the same sheet (e.g. a tray and its lid): each gets its own tree
+  while (true) {
+    const next = faces.filter(f => depth[f.id] < 0 && adj[f.id].length).sort((a, b) => b.area - a.area)[0];
+    if (!next) break;
+    grow(next.id);
   }
   const connected = faces.filter(f => depth[f.id] >= 0);
   return {
-    faces, hinges, root, depth, diag, tol,
+    faces, hinges, root, roots, depth, diag, tol,
     bbox: { minx, miny, maxx, maxy },
     autoFolds: !!opt.autoFolds,
     stats: {
@@ -193,6 +209,15 @@ function intersect(s, r, tol, ps, pr) {
   if (t >= -e1 && t <= 1 + e1 && u >= -e2 && u <= 1 + e2) {
     ps.push(Math.min(1, Math.max(0, t))); pr.push(Math.min(1, Math.max(0, u)));
   }
+}
+
+function pointInPoly(pt, poly) {
+  let inside = false;
+  for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+    const a = poly[i], b = poly[j];
+    if ((a.y > pt.y) !== (b.y > pt.y) && pt.x < ((b.x - a.x) * (pt.y - a.y)) / (b.y - a.y) + a.x) inside = !inside;
+  }
+  return inside;
 }
 
 export function signedArea(p) {

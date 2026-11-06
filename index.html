@@ -6,9 +6,14 @@
 <title>REA Fold Lab</title>
 </head>
 <body>
-<div class="app">
+<nav class="tabs">
+  <b class="brand">REA <span>Fold Lab</span></b>
+  <button class="tab on" data-tab="fold">3D Fold</button>
+  <button class="tab" data-tab="maker">Dieline Maker</button>
+</nav>
+<div class="app" id="foldApp">
   <aside>
-    <h1>REA Fold Lab <span>· v0.5</span></h1>
+    <h1>3D Fold <span>· v0.6</span></h1>
     <div class="sub">Turn a flat dieline into a foldable 3D box.</div>
 
     <h2>1. Dieline</h2>
@@ -17,21 +22,7 @@
       <small>Click or drop a dieline here (SVG, PDF or PDF-compatible .ai).<br>Any stroke colours; you choose which is cut or crease.</small>
       <input type="file" id="file" accept=".svg,image/svg+xml,.pdf,application/pdf,.ai" hidden>
     </div>
-    <div class="row"><button class="btn" id="sample">Load sample box</button><button class="btn" id="genToggle">Create dieline…</button></div>
-    <div class="gen" id="gen" hidden>
-      <div class="lbl2">Create a dieline from size</div>
-      <select id="gStyle"></select>
-      <div class="grid3">
-        <label>L <small>length</small><input type="number" id="gL" min="10" max="2000" step="0.5"></label>
-        <label>W <small>width</small><input type="number" id="gW" min="10" max="2000" step="0.5"></label>
-        <label>H <small>height</small><input type="number" id="gH" min="10" max="2000" step="0.5"></label>
-        <label>Board <small>mm</small><input type="number" id="gT" min="0" max="5" step="0.05"></label>
-        <label>Glue <small>flap</small><input type="number" id="gG" min="5" max="50" step="0.5"></label>
-        <label>Tuck <small>flap</small><input type="number" id="gK" min="5" max="200" step="0.5"></label>
-      </div>
-      <div class="hint">Inside size in mm (the product fits inside). Each panel gets + board thickness. These are standard starting allowances: check the first sample with your die-maker.</div>
-      <div class="row tight"><button class="btn primary" id="gMake">Create &amp; fold</button></div>
-    </div>
+    <div class="row"><button class="btn" id="sample">Load sample box</button><button class="btn" id="genToggle">Create dieline →</button></div>
     <div class="file" id="fname"></div>
     <div class="stats" id="stats"></div>
     <div class="msg" id="msg"></div>
@@ -99,6 +90,58 @@
       <div class="t"><span>Dieline</span><span class="legend"><i style="background:var(--cut)"></i>cut<i style="background:var(--crease)"></i>crease</span></div>
       <svg id="flat"></svg>
     </div>
+  </main>
+</div>
+
+<div class="maker" id="makerApp" hidden>
+  <aside class="mk-side">
+    <h1>Dieline Maker <span>· v0.6</span></h1>
+    <div class="sub">Pick a box style, enter the inside size, export for your die-maker.</div>
+
+    <h2>Box style</h2>
+    <select id="mkStyle" class="full"></select>
+    <div class="row tight">
+      <div class="seg" id="mkUnits"><button data-u="mm" class="on">mm</button><button data-u="in">inch</button></div>
+    </div>
+
+    <h2>Size</h2>
+    <div class="grid3" id="mkParams"></div>
+    <div class="msg" id="mkMsg"></div>
+    <div class="mk-info" id="mkInfo"></div>
+
+    <h2>Show on dieline</h2>
+    <label class="chk"><input type="checkbox" id="mkDims" checked> Dimensions</label>
+    <label class="chk"><input type="checkbox" id="mkLabels" checked> Panel labels</label>
+    <label class="chk"><input type="checkbox" id="mkBleed" checked> Bleed <input type="number" id="mkBleedMm" value="3" min="0" max="20" step="0.5" class="mini"> mm</label>
+    <label class="chk"><input type="checkbox" id="mkSafe" checked> Safe area <input type="number" id="mkSafeMm" value="3" min="0" max="20" step="0.5" class="mini"> mm</label>
+
+    <h2>Use it</h2>
+    <button class="btn primary full" id="mkFold">Fold in 3D →</button>
+    <div class="row tight"><button class="btn" id="mkSvg">SVG</button><button class="btn" id="mkPdf">PDF</button><button class="btn" id="mkDxf">DXF</button></div>
+    <div class="hint">PDF: spot colours <b>CutContour</b> &amp; <b>Crease</b>, one layer per kind. DXF: layers CUT, CREASE, BLEED, SAFE, DIMENSIONS, LABELS, in mm. To design artwork, use the PDF page: artwork exported at that page size lines up in 3D.</div>
+
+    <h2>Sheet layout</h2>
+    <select id="mkSheet" class="full"></select>
+    <div class="grid3" id="mkSheetCustom" hidden>
+      <label>Sheet W <small>mm</small><input type="number" id="mkSheetW" value="700" min="50" max="3000"></label>
+      <label>Sheet H <small>mm</small><input type="number" id="mkSheetH" value="1000" min="50" max="3000"></label>
+    </div>
+    <div class="grid3">
+      <label>Gutter <small>mm</small><input type="number" id="mkGutter" value="5" min="0" max="50" step="0.5"></label>
+      <label>Margin <small>gripper mm</small><input type="number" id="mkMargin" value="10" min="0" max="100" step="0.5"></label>
+      <label>Include <small>bleed</small><select id="mkNestBleed"><option value="1">Yes</option><option value="0">No</option></select></label>
+    </div>
+    <div class="mk-nest" id="mkNest"></div>
+    <div class="row tight"><button class="btn" id="mkSheetPdf">Sheet PDF</button><button class="btn" id="mkSheetDxf">Sheet DXF</button></div>
+
+    <div class="hint warn-note">Allowances: panel = inside size + board; lid depth = W + board. These are standard starting values for proofs. Check the first physical sample with your die-maker before cutting a die.</div>
+  </aside>
+  <main class="mk-main">
+    <div class="mk-bar">
+      <div class="seg" id="mkView"><button data-v="dieline" class="on">Dieline</button><button data-v="sheet">Sheet layout</button></div>
+      <div class="seg" id="mkZoom"><button data-z="-1">−</button><button data-z="0">Fit</button><button data-z="1">+</button></div>
+    </div>
+    <div class="mk-canvas" id="mkCanvas"><div id="mkPaper"></div></div>
   </main>
 </div>
 <div id="svghost" style="position:fixed;left:-20000px;top:0;width:1000px;height:1000px;opacity:0;pointer-events:none"></div>

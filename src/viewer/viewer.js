@@ -64,8 +64,10 @@ export function createViewer(container) {
   }
 
   /** m: fold model. ab: SVG artboard {x,y,w,h} in user units (for artwork mapping). */
-  function setModel(m, ab) {
+  function setModel(m, ab, { floor = false } = {}) {
     clear(); model = m; artboard = ab;
+    // trays and mailers: the root panel is the floor and the walls rise up, front toward the camera
+    if (floor) mirror.rotation.set(Math.PI / 2, Math.PI, 0, 'YXZ'); else mirror.rotation.set(0, 0, 0);
     thick = m.diag * 0.0012;
     // layer smaller panel sizes slightly further inside so overlapping flaps never touch
     const levels = [...new Set(m.faces.map(f => Math.round(f.area / (m.diag * m.diag) * 1e4)))].sort((a, b) => b - a);
@@ -91,7 +93,7 @@ export function createViewer(container) {
         pivots[h.id] = pivot; make(h.child, inr);
       }
     };
-    root = new THREE.Group(); make(m.root, root); mirror.add(root);
+    root = new THREE.Group(); (m.roots || [m.root]).forEach(r => make(r, root)); mirror.add(root);
     fit();
   }
 

@@ -5,6 +5,10 @@
  * flap (the tuck), choosing the highest one on the sheet. Returns { lid, tucks } or null.
  */
 export function findLid(m) {
+  if (m.hinges.some(h => h.role)) { // lid marked by the dieline generator
+    const lid = m.hinges.find(h => h.role === 'lid');
+    return lid ? { lid, tucks: m.hinges.filter(h => h.parent === lid.child) } : null;
+  }
   const hasKids = new Set(m.hinges.map(h => h.parent));
   const cands = m.hinges.filter(h => hasKids.has(h.child) && Math.abs(h.dir.x) > 0.9);
   if (!cands.length) return null;
@@ -16,10 +20,10 @@ export const PRESETS = ['flat', 'half', 'closed', 'lidOpen'];
 
 /** Angles (degrees, indexed by hinge id) for a named preset. */
 export function presetAngles(m, name) {
-  const all = a => m.hinges.map(() => a);
-  if (name === 'flat') return all(0);
-  if (name === 'half') return all(45);
-  const out = all(90);
+  const closed = m.hinges.map(h => h.closed ?? 90);
+  if (name === 'flat') return closed.map(() => 0);
+  if (name === 'half') return closed.map(a => a / 2);
+  const out = closed.slice();
   if (name === 'lidOpen') {
     const l = findLid(m);
     if (l) { out[l.lid.id] = -20; l.tucks.forEach(t => (out[t.id] = 20)); }
