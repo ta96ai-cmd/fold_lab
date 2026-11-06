@@ -111,3 +111,29 @@ test('camera moves give finite positions outside the box', () => {
     assert.ok(Math.hypot(...p) > 150, `${name} too close at t=${t}`);
   }
 });
+
+import { frameTimes, VIDEO_SIZES, IMAGE_SIZES } from '../src/export/sizes.js';
+
+test('all 9 camera moves keep the camera at a safe distance', () => {
+  assert.equal(Object.keys(CAMERA_MOVES).length, 9);
+  for (const [name, mv] of Object.entries(CAMERA_MOVES)) for (let i = 0; i <= 40; i++) {
+    const p = mv.at(i / 40, 100);
+    assert.ok(p.every(Number.isFinite), name);
+    assert.ok(Math.hypot(...p) > 150, `${name} too close at t=${i / 40}`);
+  }
+});
+
+test('looping moves end where they start', () => {
+  for (const name of ['orbit', 'fullInspection', 'turntable', 'pendulum', 'drift']) {
+    const a = CAMERA_MOVES[name].at(0, 100), b = CAMERA_MOVES[name].at(1, 100);
+    assert.ok(Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2]) < 1e-6, name);
+  }
+});
+
+test('video frame timing', () => {
+  const f = frameTimes(6.5, 60);
+  assert.equal(f.length, 390);
+  assert.equal(f[0].t, 0); assert.equal(f.at(-1).t, 1);
+  assert.equal(f[60].us, 1000000);
+  for (const s of [...Object.values(VIDEO_SIZES), ...Object.values(IMAGE_SIZES)]) assert.ok(s.w % 2 === 0 && s.h % 2 === 0, 'even sizes for H.264');
+});

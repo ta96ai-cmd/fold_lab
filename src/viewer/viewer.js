@@ -6,7 +6,7 @@ import { CAMERA_MOVES } from './camera-moves.js';
 const WHITE_OUT = 0xf5f2ea, WHITE_IN = 0xd9d2c4;
 
 export function createViewer(container) {
-  const renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true });
+  const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, preserveDrawingBuffer: true });
   renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
   renderer.outputColorSpace = THREE.SRGBColorSpace;
   container.appendChild(renderer.domElement);
@@ -79,7 +79,7 @@ export function createViewer(container) {
   function recenter() {
     holder.position.set(0, 0, 0); holder.updateMatrixWorld(true);
     const c = new THREE.Box3().setFromObject(mirror).getCenter(new THREE.Vector3());
-    holder.position.copy(c).negate();
+    holder.position.copy(c).negate(); holder.updateMatrixWorld(true);
   }
 
   /** angles: degrees per hinge id. flip: the dieline was drawn from the inside. */
@@ -123,7 +123,7 @@ export function createViewer(container) {
   function playMove(name, { duration = 6000, onFrame, onEnd } = {}) {
     if (!model) return;
     recenter();
-    move = { fn: CAMERA_MOVES[name].at, R: boxRadius(), t0: performance.now(), duration, onFrame, onEnd };
+    move = { name, R: boxRadius(), t0: performance.now(), duration, onFrame, onEnd };
     controls.enabled = false;
   }
   function stopMove() {
@@ -137,16 +137,61 @@ export function createViewer(container) {
     renderer.setSize(r.width, r.height);
     camera.aspect = r.width / Math.max(1, r.height); camera.updateProjectionMatrix();
   }
-  new ResizeObserver(resize).observe(container); resize();
-  renderer.setAnimationLoop(now => {
+  // ---------- offscreen rendering for exports ----------
+  let saved = null;
+  /** Switch the renderer to an exact pixel size (and optional transparent background). */
+  function beginOffscreen(width, height, { transparent = false } = {}) {
+    saved = { pr: renderer.getPixelRatio(), size: renderer.getSize(new THREE.Vector2()), aspect: camera.aspect, bg: scene.background, pos: camera.position.clone(), q: camera.quaternion.clone() };
+    renderer.setAnimationLoop(null);
+    renderer.setPixelRatio(1); renderer.setSize(width, height, false);
+    camera.aspect = width / height; camera.updateProjectionMatrix();
+    if (transparent) { scene.background = null; renderer.setClearColor(0x000000, 0); }
+    return renderer.domElement;
+  }
+  function endOffscreen() {
+    if (!saved) return;
+    renderer.setPixelRatio(saved.pr); renderer.setSize(saved.size.x, saved.size.y, false);
+    scene.background = saved.bg; renderer.setClearColor(0x000000, 1);
+    camera.position.copy(saved.pos); camera.quaternion.copy(saved.q);
+    saved = null; resize(); renderer.setAnimationLoop(loop);
+  }
+  function renderNow() { renderer.render(scene, camera); }
+  /** Keep the current viewing direction but move the camera so the box fills the frame. */
+  function fitToFrame(fill = 0.8) {
+    if (!model) return;
+    recenter();
+    const dir = camera.position.clone().sub(controls.target);
+    if (dir.lengthSq() < 1e-9) dir.set(0.35, 0.25, 1);
+    dir.normalize();
+    const box = new THREE.Box3().setFromObject(mirror), corners = [];
+    for (const x of [box.min.x, box.max.x]) for (const y of [box.min.y, box.max.y]) for (const z of [box.min.z, box.max.z]) corners.push(new THREE.Vector3(x, y, z));
+    let d = box.getBoundingSphere(new THREE.Sphere()).radius * 3;
+    for (let i = 0; i < 4; i++) { // measure the projected size and correct the distance (converges in 2-3 steps)
+      camera.position.copy(dir).multiplyScalar(d); camera.lookAt(0, 0, 0); camera.updateMatrixWorld(); camera.updateProjectionMatrix();
+      const ext = Math.max(...corners.map(c => { const p = c.clone().project(camera); return Math.max(Math.abs(p.x), Math.abs(p.y)); }));
+      d *= ext / fill;
+    }
+    camera.position.copy(dir.multiplyScalar(d)); camera.lookAt(0, 0, 0);
+  }
+  /** Prepare a camera move for frame-by-frame export; returns the framing radius. */
+  function moveRadius() { recenter(); return boxRadius(); }
+  function placeCamera(name, t, R) { camera.position.set(...CAMERA_MOVES[name].at(t, R)); camera.lookAt(0, 0, 0); }
+
+  new ResizeObserver(() => !saved && resize()).observe(container); resize();
+  const loop = now => {
     if (move) {
       const t = Math.min(1, (now - move.t0) / move.duration);
       move.onFrame && move.onFrame(t);
-      camera.position.set(...move.fn(t, move.R)); camera.lookAt(0, 0, 0);
+      placeCamera(move.name, t, move.R);
       if (t >= 1) stopMove();
     } else controls.update();
     renderer.render(scene, camera);
-  });
+  };
+  renderer.setAnimationLoop(loop);
 
-  return { setModel, setAngles, setArtwork, playMove, stopMove, clear, camera, controls, get playing() { return !!move; } };
+  return {
+    setModel, setAngles, setArtwork, playMove, stopMove, clear, camera, controls,
+    beginOffscreen, endOffscreen, renderNow, fitToFrame, moveRadius, placeCamera,
+    get playing() { return !!move; }, get hasModel() { return !!model; },
+  };
 }

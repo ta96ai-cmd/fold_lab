@@ -3,12 +3,12 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>REA Fold Lab — Phase 2</title>
+<title>REA Fold Lab — Phase 3</title>
 </head>
 <body>
 <div class="app">
   <aside>
-    <h1>REA Fold Lab <span>· Phase 2</span></h1>
+    <h1>REA Fold Lab <span>· Phase 3</span></h1>
     <div class="sub">Turn a flat dieline into a foldable 3D box.</div>
 
     <h2>1. Dieline</h2>
@@ -51,13 +51,26 @@
     <label class="chk"><input type="checkbox" id="flip"> Dieline is drawn from the inside (fold the other way)</label>
 
     <h2>4. Camera move</h2>
-    <div class="moves">
-      <button class="btn move" data-move="orbit">Showcase orbit</button>
-      <button class="btn move" data-move="hero">Hero reveal</button>
-      <button class="btn move" data-move="topDown">Top-down reveal</button>
-    </div>
+    <div class="moves" id="moves"></div>
     <label class="chk"><input type="checkbox" id="lidMove" checked> Open &amp; close the lid during the move</label>
-    <div class="hint">Moves start from the closed box. Click the canvas to stop.</div>
+    <div class="hint">Click a move to preview it. The selected move is used for video export. Click the canvas to stop.</div>
+
+    <h2>5. Export</h2>
+    <div class="exp">
+      <div class="lbl2">Image (current view)</div>
+      <div class="row tight"><select id="imgSize"></select><button class="btn" id="saveImg">Save PNG</button></div>
+      <label class="chk"><input type="checkbox" id="imgFit" checked> Fit box to frame (keeps your viewing angle)</label>
+      <label class="chk"><input type="checkbox" id="imgClear"> Transparent background</label>
+      <div class="lbl2" style="margin-top:14px">Video (selected move)</div>
+      <div class="row tight"><select id="vidSize"></select><select id="vidLen"><option value="5">5 s</option><option value="6.5" selected>6.5 s</option><option value="10">10 s</option></select></div>
+      <div class="row tight"><select id="vidFps"><option value="60" selected>60 fps</option><option value="30">30 fps</option></select><button class="btn primary" id="saveVid">Render MP4</button></div>
+      <div class="prog" id="prog" hidden><div class="bar"><i id="progBar"></i></div><div class="row tight"><span id="progTxt" class="stats"></span><button class="btn" id="cancelVid">Cancel</button></div></div>
+    </div>
+
+    <h2>6. My dielines</h2>
+    <div class="row tight"><button class="btn" id="saveLib">Save current box</button></div>
+    <div class="hint">Saved in this browser on this computer: the dieline, its colour settings and artwork.</div>
+    <div id="lib"></div>
 
     <h2>Hinges <span id="hcount"></span></h2>
     <div id="hinges"></div>

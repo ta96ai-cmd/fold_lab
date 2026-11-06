@@ -7,11 +7,17 @@ import { extractStrokes, toSegments, toHex } from './svg/parse-svg.js';
 import { createViewer } from './viewer/viewer.js';
 import { drawFlat, highlightHinge } from './ui/flat-preview.js';
 import { makeSampleArt } from './art/sample-art.js';
+import { CAMERA_MOVES } from './viewer/camera-moves.js';
+import { IMAGE_SIZES, VIDEO_SIZES } from './export/sizes.js';
+import { exportImage } from './export/image.js';
+import { exportVideo, videoSupported } from './export/video.js';
+import { download, safeName } from './export/download.js';
+import { saveDieline, listDielines, getDieline, deleteDieline } from './storage/library.js';
 
 const $ = id => document.getElementById(id);
 const state = {
-  name: '', items: [], artboard: null, colors: [], model: null, angles: [], flip: false,
-  art: { exterior: null, interior: null, extName: '', intName: '', intInside: true },
+  name: '', svg: '', items: [], artboard: null, colors: [], model: null, angles: [], flip: false, move: 'orbit',
+  art: { exterior: null, interior: null, extName: '', intName: '', extBlob: null, intBlob: null, intInside: true },
 };
 const viewer = createViewer($('view'));
 
@@ -25,9 +31,9 @@ function loadSVG(text, name) {
       if (!groups.has(it.key)) groups.set(it.key, { key: it.key, rgb: it.rgb, dashed: it.dashed, count: 0, role: defaultRole(...it.rgb, it.dashed) });
       groups.get(it.key).count++;
     }
-    Object.assign(state, { name, items, artboard, colors: [...groups.values()].sort((a, b) => b.count - a.count) });
+    Object.assign(state, { name, svg: text, items, artboard, colors: [...groups.values()].sort((a, b) => b.count - a.count) });
     $('anim').textContent = 'Fold box';
-    if (state.art.extName === 'sample exterior') Object.assign(state.art, { exterior: null, interior: null }); // sample art belongs to the old dieline
+    if (state.art.extName === 'sample exterior') Object.assign(state.art, { exterior: null, interior: null, extBlob: null, intBlob: null }); // sample art belongs to the old dieline
     renderColors(); rebuild();
     return true;
   } catch (e) { showMsg(e.message, 'err'); console.error(e); return false; }
@@ -150,30 +156,37 @@ document.querySelectorAll('[data-preset]').forEach(b => (b.onclick = () => {
 $('flip').onchange = e => { state.flip = e.target.checked; applyAngles(); };
 
 // ---------- camera moves ----------
+for (const [key, mv] of Object.entries(CAMERA_MOVES)) {
+  const b = document.createElement('button');
+  b.className = 'btn move' + (key === state.move ? ' sel' : ''); b.dataset.move = key; b.textContent = mv.label;
+  $('moves').appendChild(b);
+}
+const setLid = t => {
+  const lid = $('lidMove').checked && state.model ? findLid(state.model) : null;
+  if (!lid) return;
+  const s = lidSwing(t);
+  state.angles[lid.lid.id] = s.lid; lid.tucks.forEach(k => (state.angles[k.id] = s.tuck));
+  applyAngles({ recenter: false });
+};
+/** Fold to the closed box (animated) unless it's already closed. */
+function ensureClosed(then) {
+  const closed = presetAngles(state.model, 'closed');
+  if (state.angles.every((a, i) => Math.abs(a - closed[i]) < 0.5)) return then();
+  animateTo(closed, () => { $('all').value = 90; $('allv').textContent = '90°'; $('anim').textContent = 'Unfold box'; then(); });
+}
 document.querySelectorAll('[data-move]').forEach(b => (b.onclick = () => {
-  const m = state.model; if (!m) return;
-  const closed = presetAngles(m, 'closed');
-  const lid = $('lidMove').checked ? findLid(m) : null;
-  const start = () => {
+  state.move = b.dataset.move;
+  document.querySelectorAll('.move').forEach(x => x.classList.toggle('sel', x === b));
+  if (!state.model) return;
+  ensureClosed(() => {
     document.querySelectorAll('.move').forEach(x => x.classList.toggle('on', x === b));
-    if (lid) { // frame the shot around the fully open lid, so it never leaves the picture
-      const s = lidSwing(0.5);
-      state.angles[lid.lid.id] = s.lid; lid.tucks.forEach(k => (state.angles[k.id] = s.tuck));
-      applyAngles({ recenter: false });
-    }
+    setLid(0.5); // frame the shot around the fully open lid, so it never leaves the picture
     viewer.playMove(b.dataset.move, {
       duration: 6500,
-      onFrame: t => {
-        if (!lid) return;
-        const s = lidSwing(t);
-        state.angles[lid.lid.id] = s.lid; lid.tucks.forEach(k => (state.angles[k.id] = s.tuck));
-        applyAngles({ recenter: false });
-      },
+      onFrame: setLid,
       onEnd: () => { document.querySelectorAll('.move').forEach(x => x.classList.remove('on')); syncHingeUI(); },
     });
-  };
-  const isClosed = state.angles.every((a, i) => Math.abs(a - closed[i]) < 0.5);
-  if (isClosed) start(); else animateTo(closed, () => { $('all').value = 90; $('allv').textContent = '90°'; $('anim').textContent = 'Unfold box'; start(); });
+  });
 }));
 $('view').addEventListener('pointerdown', () => viewer.playing && viewer.stopMove());
 
@@ -187,18 +200,19 @@ function renderArtBoxes() {
     $(name).textContent = src ? label : 'white';
   }
 }
-function readImage(file, slot) {
+function readImage(file, slot, name = file && file.name) {
   if (!file) return;
   const url = URL.createObjectURL(file), img = new Image();
   img.onload = () => {
-    state.art[slot] = img; state.art[slot === 'exterior' ? 'extName' : 'intName'] = file.name;
+    state.art[slot] = img; state.art[slot === 'exterior' ? 'extName' : 'intName'] = name;
+    state.art[slot === 'exterior' ? 'extBlob' : 'intBlob'] = file;
     if (state.artboard) {
       const a = img.width / img.height, b = state.artboard.w / state.artboard.h;
-      if (Math.abs(a / b - 1) > 0.03) showMsg(`${file.name} is ${img.width}×${img.height}; its shape doesn't match the dieline artboard, so the art will be stretched. Export it at the same artboard size as the SVG.`, 'warn');
+      if (Math.abs(a / b - 1) > 0.03) showMsg(`${name} is ${img.width}×${img.height}; its shape doesn't match the dieline artboard, so the art will be stretched. Export it at the same artboard size as the SVG.`, 'warn');
     }
     applyArt();
   };
-  img.onerror = () => showMsg(`Couldn't read ${file.name} as an image.`, 'err');
+  img.onerror = () => showMsg(`Couldn't read ${name} as an image.`, 'err');
   img.src = url;
 }
 $('extFile').onchange = e => readImage(e.target.files[0], 'exterior');
@@ -206,12 +220,97 @@ $('intFile').onchange = e => readImage(e.target.files[0], 'interior');
 $('sampleArt').onclick = () => {
   if (!state.model) return;
   const art = makeSampleArt(state.model, state.artboard);
-  Object.assign(state.art, { exterior: art.exterior, interior: art.interior, extName: 'sample exterior', intName: 'sample kraft', intInside: true });
+  Object.assign(state.art, { exterior: art.exterior, interior: art.interior, extName: 'sample exterior', intName: 'sample kraft', extBlob: null, intBlob: null, intInside: true });
   $('intInside').checked = true;
   applyArt();
 };
-$('clearArt').onclick = () => { Object.assign(state.art, { exterior: null, interior: null }); applyArt(); };
+$('clearArt').onclick = () => { Object.assign(state.art, { exterior: null, interior: null, extBlob: null, intBlob: null }); applyArt(); };
 $('intInside').onchange = e => { state.art.intInside = e.target.checked; applyArt(); };
+
+// ---------- export ----------
+const fillSelect = (sel, sizes) => { for (const [k, v] of Object.entries(sizes)) sel.add(new Option(v.label, k)); };
+fillSelect($('imgSize'), IMAGE_SIZES); fillSelect($('vidSize'), VIDEO_SIZES);
+if (!videoSupported()) { $('saveVid').disabled = true; $('saveVid').title = 'Needs the latest Chrome or Edge'; }
+
+$('saveImg').onclick = async () => {
+  if (!state.model) return;
+  stopAll();
+  try {
+    const blob = await exportImage(viewer, { ...IMAGE_SIZES[$('imgSize').value], transparent: $('imgClear').checked, fit: $('imgFit').checked });
+    download(blob, `${safeName(state.name)}_${$('imgSize').value}.png`);
+  } catch (e) { showMsg(e.message, 'err'); }
+};
+
+let job = null;
+$('saveVid').onclick = () => {
+  if (!state.model || job) return;
+  stopAll();
+  ensureClosed(async () => {
+    job = { cancelled: false };
+    const sz = VIDEO_SIZES[$('vidSize').value], fps = +$('vidFps').value, seconds = +$('vidLen').value;
+    const before = state.angles.slice();
+    $('prog').hidden = false; $('saveVid').disabled = true;
+    const progress = k => { $('progBar').style.width = (k * 100).toFixed(1) + '%'; $('progTxt').textContent = `Rendering ${Math.round(k * 100)}% · ${CAMERA_MOVES[state.move].label}`; };
+    try {
+      const blob = await exportVideo(viewer, { move: state.move, w: sz.w, h: sz.h, fps, seconds, setFrame: setLid, onProgress: progress, signal: job });
+      download(blob, `${safeName(state.name)}_${state.move}_${sz.w}x${sz.h}_${fps}fps.mp4`);
+      $('progTxt').textContent = `Done · ${(blob.size / 1048576).toFixed(1)} MB`;
+    } catch (e) {
+      if (e.message === 'cancelled') $('progTxt').textContent = 'Cancelled';
+      else { showMsg(e.message, 'err'); $('progTxt').textContent = 'Failed'; }
+    } finally {
+      state.angles = before; applyAngles(); syncHingeUI();
+      job = null; $('saveVid').disabled = false;
+      setTimeout(() => { if (!job) $('prog').hidden = true; }, 4000);
+    }
+  });
+};
+$('cancelVid').onclick = () => { if (job) job.cancelled = true; };
+
+// ---------- my dielines ----------
+const canvasBlob = c => new Promise(r => c.toBlob(r, 'image/jpeg', 0.92));
+async function renderLib() {
+  let items = [];
+  try { items = await listDielines(); } catch { $('lib').innerHTML = '<div class="hint">Saving isn\'t available in this browser.</div>'; return; }
+  const box = $('lib'); box.innerHTML = items.length ? '' : '<div class="hint">Nothing saved yet.</div>';
+  for (const it of items) {
+    const d = document.createElement('div'); d.className = 'libitem';
+    d.innerHTML = `<img alt=""><div class="meta"><div></div><div>${new Date(it.savedAt).toLocaleString()}</div></div><button class="btn">Open</button><button class="btn">✕</button>`;
+    d.querySelector('img').src = it.thumb || '';
+    d.querySelector('.meta div').textContent = it.name;
+    const [openB, delB] = d.querySelectorAll('button');
+    openB.onclick = () => openSaved(it.id);
+    delB.onclick = async () => { await deleteDieline(it.id); renderLib(); };
+    box.appendChild(d);
+  }
+}
+$('saveLib').onclick = async () => {
+  if (!state.model) return;
+  const a = state.art;
+  try {
+    const thumbBlob = await exportImage(viewer, { w: 160, h: 160, transparent: false, fit: true });
+    const thumb = await new Promise(r => { const f = new FileReader(); f.onload = () => r(f.result); f.readAsDataURL(thumbBlob); });
+    await saveDieline({
+      name: state.name, svg: state.svg, roles: Object.fromEntries(state.colors.map(c => [c.key, c.role])),
+      exterior: a.extBlob || (a.exterior instanceof HTMLCanvasElement ? await canvasBlob(a.exterior) : null),
+      interior: a.intBlob || (a.interior instanceof HTMLCanvasElement ? await canvasBlob(a.interior) : null),
+      extName: a.exterior ? a.extName : '', intName: a.interior ? a.intName : '', intInside: a.intInside, thumb,
+    });
+    renderLib();
+  } catch (e) { showMsg('Could not save: ' + e.message, 'err'); }
+};
+async function openSaved(id) {
+  const it = await getDieline(id); if (!it) return;
+  stopAll();
+  Object.assign(state.art, { exterior: null, interior: null, extBlob: null, intBlob: null, intInside: it.intInside ?? true });
+  $('intInside').checked = state.art.intInside;
+  if (!loadSVG(it.svg, it.name)) return;
+  state.colors.forEach(c => { if (it.roles[c.key]) c.role = it.roles[c.key]; });
+  renderColors(); rebuild();
+  if (it.exterior) readImage(it.exterior, 'exterior', it.extName || 'exterior');
+  if (it.interior) readImage(it.interior, 'interior', it.intName || 'interior');
+}
+renderLib();
 
 // ---------- file input ----------
 const drop = $('drop'), file = $('file');
