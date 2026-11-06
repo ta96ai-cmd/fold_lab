@@ -116,7 +116,9 @@ export function buildModel(segsIn, opt = {}) {
   // 5. hinges between faces across crease edges
   const pairMap = new Map();
   edges.forEach((e, i) => {
-    if (!alive[i] || e.type !== 'crease') return;
+    // autoFolds: a line between two panels is a fold even if drawn in the cut colour
+    // (dielines that outline every panel as its own rectangle)
+    if (!alive[i] || (e.type !== 'crease' && !opt.autoFolds)) return;
     const f1 = faceOf[2 * i], f2 = faceOf[2 * i + 1];
     if (f1 < 0 || f2 < 0 || f1 === f2) return;
     const k = Math.min(f1, f2) + '_' + Math.max(f1, f2);
@@ -161,6 +163,7 @@ export function buildModel(segsIn, opt = {}) {
   return {
     faces, hinges, root, depth, diag, tol,
     bbox: { minx, miny, maxx, maxy },
+    autoFolds: !!opt.autoFolds,
     stats: {
       panels: connected.length, hinges: hinges.length,
       cutEdges: edges.filter((e, i) => alive[i] && e.type === 'cut').length,

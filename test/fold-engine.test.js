@@ -180,3 +180,14 @@ test('panels drawn as separate rectangles with creases on top (common in real di
     assert.equal(m.stats.panels, 13); assert.equal(m.stats.hinges, 12);
   }
 });
+
+test('auto folds: every panel outlined as its own rectangle, no fold lines marked', () => {
+  const g = generateTuckBox({ style: 'rte', L: 50.8, W: 38.1, H: 108, t: 0 });
+  const allCut = g.segments.map(s => ({ ...s, type: 'cut' }));
+  assert.equal(buildModel(allCut).stats.hinges, 0);
+  const m = buildModel(allCut, { autoFolds: true });
+  assert.equal(m.stats.panels, 13); assert.equal(m.stats.hinges, 12); assert.ok(m.autoFolds);
+  const pts = foldedPoints(m, 90);
+  const span = k => Math.max(...pts.map(p => p[k])) - Math.min(...pts.map(p => p[k]));
+  assert.ok(Math.abs(span('x') - 50.8) < 0.01 && Math.abs(span('y') - 108) < 0.01 && Math.abs(span('z') - 38.1) < 0.01);
+});
