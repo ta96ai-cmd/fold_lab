@@ -53,6 +53,7 @@ docs/REA-report.md         the reverse-engineering breakdown
 - **Phase 1 (done):** SVG import, cut/crease mapping, panel and hinge detection, fold sliders, fold animation.
 - **Phase 2 (done):** board thickness (hinges on the inside surface), exterior and interior artwork, sample artwork, fold presets (Flat, Half, Closed, Lid open), 3 camera moves (Showcase orbit, Hero reveal, Top-down reveal) with the lid opening mid-shot.
 - **Phase 3 (done):** PNG export (1080p, 4K, square, vertical; fit-to-frame; transparent background), MP4 export (H.264, 30/60fps, landscape / vertical Reels / square, rendered frame by frame), all 9 camera moves, "My dielines" library saved in the browser.
+- **v0.7 (done):** style gallery (categories, search, thumbnails, style codes); size modes inside / die-cut / outside; units mm, cm, inch, 1/64 inch; board caliper in mm or pt; statistics (cut and crease line length, board used, rectangle, utilisation; per-sheet cut/crease metres). See docs/REA-packmage.md.
 - **v0.6 (done):** Dieline Maker tab: 7 parametric styles (reverse tuck end, straight tuck end, auto-lock bottom, seal end, sleeve, tray with lid, roll-end mailer), mm/inch, dimensions, panel labels, bleed and safe-area guides, SVG / PDF (CutContour + Crease spot colours, layers) / DXF (layers) export, sheet nesting with sheet PDF/DXF, Fold in 3D with correct closing angles (e.g. 180° roll-over walls).
 - **v0.5 (done):** PDF and PDF-compatible .ai import, collapsible sidebar sections.
 - **v0.4 (done):** dieline generator (reverse tuck end, straight tuck end) from inside size + board thickness; dieline SVG download; 3D model (.glb) export at real size for Blender; sheet size shown in mm.
@@ -67,7 +68,7 @@ Export the print artwork as PNG or JPG at the **same artboard size as the dielin
 
 ## Dieline Maker
 
-Open the **Dieline Maker** tab, pick a style and enter the **inside** size (mm or inch). The dieline updates live.
+Open the **Dieline Maker** tab, click the style card to open the **gallery** (filter by category or search), then enter the size. Sizes can be entered as **inside** (room for the product), **die-cut** (crease to crease = inside + board) or **outside** (inside + 2 × board), in mm, cm, inch or 1/64 inch; board caliper in mm or pt (1 pt = 0.001 in). The dieline updates live, with cut and crease line lengths for die-maker quotes.
 
 | Style | Notes |
 |---|---|

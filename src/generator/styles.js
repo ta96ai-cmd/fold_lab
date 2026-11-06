@@ -15,14 +15,35 @@ const COMMON = {
 };
 
 export const STYLES = {
-  rte: { label: 'Reverse tuck end', group: 'Cartons', params: { ...COMMON, glue: num('Glue flap', 15, 5, 50), tuck: num('Tuck flap', 15, 5, 200) }, build: p => tuckEnd(p, 'rte') },
-  ste: { label: 'Straight tuck end', group: 'Cartons', params: { ...COMMON, glue: num('Glue flap', 15, 5, 50), tuck: num('Tuck flap', 15, 5, 200) }, build: p => tuckEnd(p, 'ste') },
-  autolock: { label: 'Auto-lock (crash-lock) bottom', group: 'Cartons', params: { ...COMMON, glue: num('Glue flap', 15, 5, 50), tuck: num('Tuck flap', 15, 5, 200) }, build: autoLock },
-  sealend: { label: 'Seal end (glued both ends)', group: 'Cartons', params: { ...COMMON, glue: num('Glue flap', 15, 5, 50), overlap: num('Flap overlap', 12, 0, 200, 0.5, 'major flaps past centre') }, build: sealEnd },
-  sleeve: { label: 'Sleeve (open both ends)', group: 'Sleeves & trays', params: { ...COMMON, glue: num('Glue flap', 15, 5, 50) }, build: sleeve },
-  tray: { label: 'Tray with lid (2 pieces)', group: 'Sleeves & trays', params: { L: num('Length (L)', 120, 20, 1500), W: num('Width (W)', 80, 20, 1500), H: num('Tray height', 40, 5, 500), lidH: num('Lid height', 25, 5, 500), t: COMMON.t, clear: num('Lid clearance', 1, 0, 10, 0.25, 'extra room') }, build: trayWithLid },
-  mailer: { label: 'Mailer (roll end, front tuck)', group: 'Mailers', params: { L: num('Length (L)', 200, 40, 1500), W: num('Width (W)', 150, 40, 1500), H: num('Height (H)', 60, 15, 500), t: num('Board', 1.5, 0, 6, 0.05, 'thickness mm'), tuck: num('Front tuck', 40, 10, 400) }, build: mailer },
+  rte: { label: 'Reverse tuck end', code: 'RTE', group: 'Tuck-end cartons', tags: 'folding carton tuck top bottom cosmetics pharma retail',  params: { ...COMMON, glue: num('Glue flap', 15, 5, 50), tuck: num('Tuck flap', 15, 5, 200) }, build: p => tuckEnd(p, 'rte') },
+  ste: { label: 'Straight tuck end', code: 'STE', group: 'Tuck-end cartons', tags: 'folding carton tuck top bottom same side retail',  params: { ...COMMON, glue: num('Glue flap', 15, 5, 50), tuck: num('Tuck flap', 15, 5, 200) }, build: p => tuckEnd(p, 'ste') },
+  autolock: { label: 'Auto-lock (crash-lock) bottom', code: 'ALB', group: 'Lock-bottom cartons', tags: 'crash lock auto bottom heavy bottles jars',  params: { ...COMMON, glue: num('Glue flap', 15, 5, 50), tuck: num('Tuck flap', 15, 5, 200) }, build: autoLock },
+  sealend: { label: 'Seal end (glued both ends)', code: 'SEC', group: 'Seal-end cartons', tags: 'cereal glued ends food',  params: { ...COMMON, glue: num('Glue flap', 15, 5, 50), overlap: num('Flap overlap', 12, 0, 200, 0.5, 'major flaps past centre') }, build: sealEnd },
+  sleeve: { label: 'Sleeve (open both ends)', code: 'SLV', group: 'Sleeves', tags: 'tube band wrap open ends',  params: { ...COMMON, glue: num('Glue flap', 15, 5, 50) }, build: sleeve },
+  tray: { label: 'Tray with lid (2 pieces)', code: 'TRL', group: 'Trays & lid-and-base', tags: 'two piece lid base telescope gift',  params: { L: num('Length (L)', 120, 20, 1500), W: num('Width (W)', 80, 20, 1500), H: num('Tray height', 40, 5, 500), lidH: num('Lid height', 25, 5, 500), t: COMMON.t, clear: num('Lid clearance', 1, 0, 10, 0.25, 'extra room') }, build: trayWithLid },
+  mailer: { label: 'Mailer (roll end, front tuck)', code: 'MLR', group: 'Mailers', tags: 'e-commerce shipping roll end front tuck subscription',  params: { L: num('Length (L)', 200, 40, 1500), W: num('Width (W)', 150, 40, 1500), H: num('Height (H)', 60, 15, 500), t: num('Board', 1.5, 0, 6, 0.05, 'thickness mm'), tuck: num('Front tuck', 40, 10, 400) }, build: mailer },
 };
+
+// ---------- size modes ----------
+// inside  = room for the product
+// die-cut = crease-to-crease panel size = inside + board   (what the dieline is drawn with)
+// outside = finished outer size        = inside + 2 x board
+export const SIZE_MODES = { inside: 'Inside', diecut: 'Die-cut', outside: 'Outside' };
+const SIZE_KEYS = ['L', 'W', 'H'];
+const modeOffset = (mode, t) => (mode === 'outside' ? 2 * t : mode === 'diecut' ? t : 0);
+export const isSizeKey = k => SIZE_KEYS.includes(k);
+/** Convert a size given in `mode` to the inside size the generator uses. */
+export function toInside(p, mode) {
+  const o = modeOffset(mode, p.t || 0), q = { ...p };
+  SIZE_KEYS.forEach(k => { if (k in q) q[k] = q[k] - o; });
+  return q;
+}
+/** Convert inside sizes to `mode` for display. */
+export function fromInside(p, mode) {
+  const o = modeOffset(mode, p.t || 0), q = { ...p };
+  SIZE_KEYS.forEach(k => { if (k in q) q[k] = q[k] + o; });
+  return q;
+}
 
 export function defaults(style) {
   return Object.fromEntries(Object.entries(STYLES[style].params).map(([k, v]) => [k, v.def]));

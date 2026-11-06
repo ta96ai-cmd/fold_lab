@@ -152,3 +152,15 @@ export function glueLocal(h, g) {
   const tap = Math.min(g * 0.7, h / 4);
   return [[0, 0], [tap, g], [h - tap, g], [h, 0]];
 }
+
+/** Die-maker statistics: line lengths (mm), used board area and utilisation of the bounding rectangle. */
+export function dielineStats(d) {
+  const len = e => Math.hypot(e.b[0] - e.a[0], e.b[1] - e.a[1]);
+  const area = pts => Math.abs(pts.reduce((s, p, i) => { const q = pts[(i + 1) % pts.length]; return s + p[0] * q[1] - q[0] * p[1]; }, 0)) / 2;
+  const used = d.pieces.reduce((s, pc) => s + area(pc.pts), 0), rect = d.bbox.w * d.bbox.h;
+  return {
+    cutLength: d.cuts.reduce((s, e) => s + len(e), 0),
+    creaseLength: d.creases.reduce((s, e) => s + len(e), 0),
+    usedArea: used, rectArea: rect, utilisation: rect ? used / rect : 0,
+  };
+}

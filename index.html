@@ -13,7 +13,7 @@
 </nav>
 <div class="app" id="foldApp">
   <aside>
-    <h1>3D Fold <span>· v0.6</span></h1>
+    <h1>3D Fold <span>· v0.7</span></h1>
     <div class="sub">Turn a flat dieline into a foldable 3D box.</div>
 
     <h2>1. Dieline</h2>
@@ -95,14 +95,16 @@
 
 <div class="maker" id="makerApp" hidden>
   <aside class="mk-side">
-    <h1>Dieline Maker <span>· v0.6</span></h1>
+    <h1>Dieline Maker <span>· v0.7</span></h1>
     <div class="sub">Pick a box style, enter the inside size, export for your die-maker.</div>
 
     <h2>Box style</h2>
-    <select id="mkStyle" class="full"></select>
-    <div class="row tight">
-      <div class="seg" id="mkUnits"><button data-u="mm" class="on">mm</button><button data-u="in">inch</button></div>
-    </div>
+    <button class="stylecard" id="mkStyleCard" title="Choose a box style"><div class="thumb" id="mkStyleThumb"></div><div><b id="mkStyleName"></b><small id="mkStyleMeta"></small><span>Change style →</span></div></button>
+    <div class="lbl2" style="margin-top:12px">Units</div>
+    <div class="seg" id="mkUnits"><button data-u="mm" class="on">mm</button><button data-u="cm">cm</button><button data-u="in">inch</button><button data-u="in64">1/64″</button></div>
+    <div class="lbl2" style="margin-top:10px">Sizes entered as</div>
+    <div class="seg" id="mkMode"><button data-m="inside" class="on">Inside</button><button data-m="diecut">Die-cut</button><button data-m="outside">Outside</button></div>
+    <div class="hint">Inside = room for the product · Die-cut = crease to crease (inside + board) · Outside = finished size (inside + 2 × board)</div>
 
     <h2>Size</h2>
     <div class="grid3" id="mkParams"></div>
@@ -142,6 +144,15 @@
       <div class="seg" id="mkZoom"><button data-z="-1">−</button><button data-z="0">Fit</button><button data-z="1">+</button></div>
     </div>
     <div class="mk-canvas" id="mkCanvas"><div id="mkPaper"></div></div>
+    <div class="gallery" id="mkGallery" hidden>
+      <div class="g-head">
+        <b>Box styles</b>
+        <input type="search" id="mkSearch" placeholder="Search styles, e.g. mailer, lock, tray…">
+        <button class="btn" id="mkGalleryClose">Close</button>
+      </div>
+      <div class="g-cats" id="mkCats"></div>
+      <div class="g-grid" id="mkGrid"></div>
+    </div>
   </main>
 </div>
 <div id="svghost" style="position:fixed;left:-20000px;top:0;width:1000px;height:1000px;opacity:0;pointer-events:none"></div>

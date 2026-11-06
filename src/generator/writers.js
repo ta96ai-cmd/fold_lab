@@ -6,13 +6,26 @@ export const COLORS = { cut: '#FF00FF', crease: '#00FFFF', bleed: '#00A651', saf
 const r3 = v => Math.round(v * 1000) / 1000;
 const MM_PER_IN = 25.4;
 
+const trim = n => n.replace(/0+$/, '').replace(/\.$/, '');
+function gcd(a, b) { return b ? gcd(b, a % b) : a; }
+/** Length label in mm, cm, decimal inch or inch to the nearest 1/64. */
+export function formatLength(mm, units = 'mm') {
+  if (units === 'cm') return trim((mm / 10).toFixed(2));
+  if (units === 'in') return `${trim((mm / MM_PER_IN).toFixed(3))}"`;
+  if (units === 'in64') {
+    const tot = Math.round(mm / MM_PER_IN * 64), whole = Math.floor(tot / 64), n = tot % 64, g = gcd(n, 64);
+    return `${whole || ''}${whole && n ? ' ' : ''}${n ? `${n / g}/${64 / g}` : whole ? '' : '0'}"`;
+  }
+  return (Math.round(mm * 10) / 10).toString();
+}
+
 /** Everything a writer needs: lines, guides, dims, labels and page box. */
 export function prepare(gen, opts = {}) {
   const o = { dims: true, labels: true, bleed: true, safe: true, bleedMm: 3, safeMm: 3, units: 'mm', ...opts };
   const d = gen.dieline;
   const bleed = o.bleed ? bleedOutline(d.pieces, o.bleedMm) : [];
   const safe = o.safe ? safeAreas(d.pieces, o.safeMm) : [];
-  const fmt = v => (o.units === 'in' ? `${(v / MM_PER_IN).toFixed(3).replace(/0+$/, '').replace(/\.$/, '')}"` : `${(Math.round(v * 10) / 10).toString()}`);
+  const fmt = v => formatLength(v, o.units);
   // dimension lines placed just outside the dieline (or at an explicit position)
   const pad = (o.bleed ? o.bleedMm : 0) + 2;
   const dimLines = !o.dims ? [] : gen.dims.map(dm => {
@@ -33,7 +46,7 @@ export function prepare(gen, opts = {}) {
     labels: o.labels ? gen.labels : [],
     page: o.page || { x: minx - m, y: miny - m, w: maxx - minx + 2 * m, h: maxy - miny + 2 * m },
     hints: gen.hints,
-    title: `${gen.styleLabel || gen.style} ${['L', 'W', 'H'].filter(k => gen.params[k] !== undefined).map(k => fmt(gen.params[k])).join(' x ')}${o.units === 'in' ? '' : ' mm'} (inside), board ${gen.params.t} mm`,
+    title: `${gen.styleLabel || gen.style} ${['L', 'W', 'H'].filter(k => gen.params[k] !== undefined).map(k => fmt(gen.params[k])).join(' x ')}${{ mm: ' mm', cm: ' cm' }[o.units] || ''} (inside), board ${gen.params.t} mm`,
   };
 }
 
