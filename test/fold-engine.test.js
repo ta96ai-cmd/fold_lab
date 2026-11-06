@@ -137,3 +137,36 @@ test('video frame timing', () => {
   assert.equal(f[60].us, 1000000);
   for (const s of [...Object.values(VIDEO_SIZES), ...Object.values(IMAGE_SIZES)]) assert.ok(s.w % 2 === 0 && s.h % 2 === 0, 'even sizes for H.264');
 });
+
+import { generateTuckBox, validateBox } from '../src/generator/tuck-box.js';
+
+test('generated tuck boxes fold to the right size', () => {
+  for (const style of ['rte', 'ste']) for (const t of [0, 0.5]) {
+    const g = generateTuckBox({ style, L: 80, W: 50, H: 150, t });
+    const m = buildModel(g.segments);
+    assert.equal(m.stats.panels, 13, style); assert.equal(m.stats.hinges, 12, style); assert.equal(m.stats.loosePanels, 0);
+    const pts = foldedPoints(m, 90);
+    const span = k => Math.max(...pts.map(p => p[k])) - Math.min(...pts.map(p => p[k]));
+    assert.ok(Math.abs(span('x') - (80 + t)) < 0.01, `${style} t=${t} width ${span('x')}`);
+    assert.ok(Math.abs(span('y') - (150 + t)) < 0.01, `${style} t=${t} height ${span('y')}`);
+    assert.ok(Math.abs(span('z') - (50 + t)) < 0.01, `${style} t=${t} depth ${span('z')}`);
+  }
+});
+
+test('reverse vs straight tuck: bottom lid on front vs back', () => {
+  const lidPanels = style => {
+    const m = buildModel(generateTuckBox({ style }).segments);
+    return m.hinges.filter(h => Math.abs(h.dir.x) > 0.9 && m.hinges.some(k => k.parent === h.child)).map(h => h.parent).sort();
+  };
+  const rte = lidPanels('rte'), ste = lidPanels('ste');
+  assert.equal(rte.length, 2); assert.notEqual(rte[0], rte[1]);   // different panels
+  assert.equal(ste.length, 2); assert.equal(ste[0], ste[1]);      // same panel
+});
+
+test('generator rejects bad sizes and writes a mm SVG', () => {
+  assert.ok(validateBox({ style: 'rte', L: 5, W: 40, H: 100, t: 0.4, glue: 15, tuck: 15 }).length > 0);
+  assert.throws(() => generateTuckBox({ tuck: 80, W: 40 }));
+  const g = generateTuckBox({});
+  assert.match(g.svg, /width="[\d.]+mm"/);
+  assert.match(g.svg, /#FF00FF/); assert.match(g.svg, /#00FFFF/);
+});

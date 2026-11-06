@@ -3,12 +3,12 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>REA Fold Lab — Phase 3</title>
+<title>REA Fold Lab</title>
 </head>
 <body>
 <div class="app">
   <aside>
-    <h1>REA Fold Lab <span>· Phase 3</span></h1>
+    <h1>REA Fold Lab <span>· v0.4</span></h1>
     <div class="sub">Turn a flat dieline into a foldable 3D box.</div>
 
     <h2>1. Dieline</h2>
@@ -17,7 +17,21 @@
       <small>Click or drop a dieline here.<br>Any stroke colours; you choose which is cut or crease.</small>
       <input type="file" id="file" accept=".svg,image/svg+xml" hidden>
     </div>
-    <div class="row"><button class="btn" id="sample">Load sample box</button></div>
+    <div class="row"><button class="btn" id="sample">Load sample box</button><button class="btn" id="genToggle">Create dieline…</button></div>
+    <div class="gen" id="gen" hidden>
+      <div class="lbl2">Create a dieline from size</div>
+      <select id="gStyle"></select>
+      <div class="grid3">
+        <label>L <small>length</small><input type="number" id="gL" min="10" max="2000" step="0.5"></label>
+        <label>W <small>width</small><input type="number" id="gW" min="10" max="2000" step="0.5"></label>
+        <label>H <small>height</small><input type="number" id="gH" min="10" max="2000" step="0.5"></label>
+        <label>Board <small>mm</small><input type="number" id="gT" min="0" max="5" step="0.05"></label>
+        <label>Glue <small>flap</small><input type="number" id="gG" min="5" max="50" step="0.5"></label>
+        <label>Tuck <small>flap</small><input type="number" id="gK" min="5" max="200" step="0.5"></label>
+      </div>
+      <div class="hint">Inside size in mm (the product fits inside). Each panel gets + board thickness. These are standard starting allowances: check the first sample with your die-maker.</div>
+      <div class="row tight"><button class="btn primary" id="gMake">Create &amp; fold</button></div>
+    </div>
     <div class="file" id="fname"></div>
     <div class="stats" id="stats"></div>
     <div class="msg" id="msg"></div>
@@ -61,6 +75,9 @@
       <div class="row tight"><select id="imgSize"></select><button class="btn" id="saveImg">Save PNG</button></div>
       <label class="chk"><input type="checkbox" id="imgFit" checked> Fit box to frame (keeps your viewing angle)</label>
       <label class="chk"><input type="checkbox" id="imgClear"> Transparent background</label>
+      <div class="lbl2" style="margin-top:14px">Files</div>
+      <div class="row tight"><button class="btn" id="saveSvg">Dieline SVG</button><button class="btn" id="saveGlb">3D model (.glb)</button></div>
+      <div class="hint">The .glb is the box as it's folded now, at real size, with artwork. Open it in Blender: File → Import → glTF 2.0.</div>
       <div class="lbl2" style="margin-top:14px">Video (selected move)</div>
       <div class="row tight"><select id="vidSize"></select><select id="vidLen"><option value="5">5 s</option><option value="6.5" selected>6.5 s</option><option value="10">10 s</option></select></div>
       <div class="row tight"><select id="vidFps"><option value="60" selected>60 fps</option><option value="30">30 fps</option></select><button class="btn primary" id="saveVid">Render MP4</button></div>

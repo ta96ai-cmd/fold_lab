@@ -84,6 +84,7 @@ export function extractStrokes(text, host) {
   const artboard = vb && vb.width > 0 && vb.height > 0
     ? { x: vb.x, y: vb.y, w: vb.width, h: vb.height }
     : { x: 0, y: 0, w: svg.width.baseVal.value || 1000, h: svg.height.baseVal.value || 1000 };
+  artboard.mmPerUnit = mmPerUnit(svg.getAttribute('width'), artboard.w);
   const out = [];
   svg.querySelectorAll('path,line,polyline,polygon,rect,circle,ellipse').forEach(el => {
     if (el === tmp || el.closest('defs,clipPath,mask,symbol,pattern,marker')) return;
@@ -111,6 +112,14 @@ export function extractStrokes(text, host) {
   });
   host.innerHTML = '';
   return { items: out, artboard };
+}
+
+const MM = { mm: 1, cm: 10, in: 25.4, pt: 25.4 / 72, pc: 25.4 / 6, px: 25.4 / 96, '': 25.4 / 96 };
+/** mm per SVG user unit, from the root width attribute (e.g. "230mm") and the viewBox width. */
+export function mmPerUnit(widthAttr, vbWidth) {
+  const m = /^\s*([\d.]+)\s*(mm|cm|in|pt|pc|px)?\s*$/i.exec(widthAttr || '');
+  if (!m || !vbWidth) return 25.4 / 96;
+  return (+m[1] * MM[(m[2] || '').toLowerCase()]) / vbWidth;
 }
 
 /** Turn stroke groups + colour roles into engine segments. */

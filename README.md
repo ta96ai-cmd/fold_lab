@@ -35,6 +35,7 @@ src/art/sample-art.js      original sample artwork for any dieline
 src/viewer/camera-moves.js 9 camera paths
 src/export/                image + MP4 export, sizes, download
 src/storage/library.js     saved dielines (IndexedDB)
+src/generator/tuck-box.js  parametric tuck-end dielines
 src/svg/parse-svg.js       SVG -> line segments (browser)
 src/viewer/viewer.js       Three.js scene, hinge pivots, camera
 src/ui/flat-preview.js     2D dieline map
@@ -47,7 +48,8 @@ docs/REA-report.md         the reverse-engineering breakdown
 - **Phase 1 (done):** SVG import, cut/crease mapping, panel and hinge detection, fold sliders, fold animation.
 - **Phase 2 (done):** board thickness (hinges on the inside surface), exterior and interior artwork, sample artwork, fold presets (Flat, Half, Closed, Lid open), 3 camera moves (Showcase orbit, Hero reveal, Top-down reveal) with the lid opening mid-shot.
 - **Phase 3 (done):** PNG export (1080p, 4K, square, vertical; fit-to-frame; transparent background), MP4 export (H.264, 30/60fps, landscape / vertical Reels / square, rendered frame by frame), all 9 camera moves, "My dielines" library saved in the browser.
-- **Next:** BOS "3D proof" integration, holes and windows in panels, more box styles tested with real dielines.
+- **v0.4 (done):** dieline generator (reverse tuck end, straight tuck end) from inside size + board thickness; dieline SVG download; 3D model (.glb) export at real size for Blender; sheet size shown in mm.
+- **Next:** auto-lock bottom, tray and sleeve styles; PDF/DXF dieline export; BOS "3D proof" integration; holes and windows in panels.
 
 ## Artwork
 
@@ -56,10 +58,17 @@ Export the print artwork as PNG or JPG at the **same artboard size as the dielin
 - **Interior**: the inside print. By default it is treated as laid out "as seen from inside" (a mirror of the dieline); untick the box if yours isn't mirrored.
 - You can also drop a PNG/JPG anywhere on the page to set the exterior.
 
+## Create a dieline
+
+Click **Create dieline…**, pick a style and enter the **inside** size in mm (L × W × H), board thickness, glue flap and tuck flap. **Create & fold** draws the dieline (magenta cut, cyan crease) and folds it. Export → **Dieline SVG** saves it at true mm scale.
+
+Allowances used: every panel = inside size + board thickness; lid depth = W + board. These are common starting values, not a die-maker's spec: always check the first physical sample.
+
 ## Export
 
 - **Image:** saves the current view as PNG. "Fit box to frame" keeps your viewing angle and zooms so the box fills the picture. Tick "Transparent background" for a cut-out PNG.
 - **Video:** renders the selected camera move to MP4 (H.264). Every frame is rendered offline, so the video is perfectly smooth even on a slow PC; it just takes longer. Needs a current Chrome or Edge (WebCodecs).
+- **3D model (.glb):** the box as currently folded, at real size (metres), with artwork. In Blender: File → Import → glTF 2.0. Size comes from the SVG's width unit (mm, cm, in, pt, px); the sheet size shown under the file name tells you if it was read correctly.
 - **My dielines:** saves the dieline, its colour settings and artwork in this browser (IndexedDB). It stays on this computer and this browser only.
 
 ## Known limits

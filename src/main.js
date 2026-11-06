@@ -13,6 +13,8 @@ import { exportImage } from './export/image.js';
 import { exportVideo, videoSupported } from './export/video.js';
 import { download, safeName } from './export/download.js';
 import { saveDieline, listDielines, getDieline, deleteDieline } from './storage/library.js';
+import { BOX_STYLES, DEFAULT_BOX, generateTuckBox } from './generator/tuck-box.js';
+import { exportGLB } from './export/glb.js';
 
 const $ = id => document.getElementById(id);
 const state = {
@@ -48,7 +50,8 @@ function rebuild() {
     const m = buildModel(segs);
     state.model = m; state.angles = m.hinges.map(() => 0);
     $('all').value = 0; $('allv').textContent = '0°';
-    $('stats').textContent = `${count('crease')} crease · ${count('cut')} cut · ${m.stats.panels} panels · ${m.stats.hinges} hinges`;
+    const mm = v => Math.round(v * (state.artboard?.mmPerUnit || 0.2646));
+    $('stats').textContent = `${count('crease')} crease · ${count('cut')} cut · ${m.stats.panels} panels · ${m.stats.hinges} hinges · sheet ${mm(m.bbox.maxx - m.bbox.minx)} × ${mm(m.bbox.maxy - m.bbox.miny)} mm`;
     if (m.stats.hinges === 0) showMsg('Found panels but no hinges. Set your fold-line colour to “Crease”.', 'warn');
     else if (m.stats.loosePanels) showMsg(`${m.stats.loosePanels} closed shape(s) aren't joined to the box by a crease (holes or windows); they are hidden.`, 'warn');
     viewer.setModel(m, state.artboard); applyArt(); applyAngles();
@@ -266,6 +269,29 @@ $('saveVid').onclick = () => {
   });
 };
 $('cancelVid').onclick = () => { if (job) job.cancelled = true; };
+
+$('saveSvg').onclick = () => { if (state.svg) download(new Blob([state.svg], { type: 'image/svg+xml' }), `${safeName(state.name)}.svg`); };
+$('saveGlb').onclick = async () => {
+  if (!state.model) return;
+  stopAll();
+  try { download(await exportGLB(viewer, state.artboard?.mmPerUnit), `${safeName(state.name)}.glb`); }
+  catch (e) { showMsg('Could not export the 3D model: ' + e.message, 'err'); }
+};
+
+// ---------- dieline generator ----------
+for (const [k, v] of Object.entries(BOX_STYLES)) $('gStyle').add(new Option(v.label, k));
+const genFields = { L: 'gL', W: 'gW', H: 'gH', t: 'gT', glue: 'gG', tuck: 'gK' };
+for (const [k, id] of Object.entries(genFields)) $(id).value = DEFAULT_BOX[k];
+$('genToggle').onclick = () => { $('gen').hidden = !$('gen').hidden; };
+$('gMake').onclick = () => {
+  const p = { style: $('gStyle').value };
+  for (const [k, id] of Object.entries(genFields)) p[k] = parseFloat($(id).value);
+  try {
+    const g = generateTuckBox(p);
+    const name = `${p.style.toUpperCase()}_${p.L}x${p.W}x${p.H}.svg`;
+    if (loadSVG(g.svg, name)) animateTo(presetAngles(state.model, 'closed'), () => { $('all').value = 90; $('allv').textContent = '90°'; $('anim').textContent = 'Unfold box'; });
+  } catch (e) { showMsg(e.message, 'err'); }
+};
 
 // ---------- my dielines ----------
 const canvasBlob = c => new Promise(r => c.toBlob(r, 'image/jpeg', 0.92));

@@ -19,9 +19,27 @@ export function createViewer(container) {
   const fill = new THREE.DirectionalLight(0xffffff, 0.5); fill.position.set(-1, -0.5, -1); scene.add(fill);
 
   const matOut = new THREE.MeshStandardMaterial({ color: WHITE_OUT, roughness: 0.8, side: THREE.FrontSide });
-  const matIn = new THREE.MeshStandardMaterial({ color: WHITE_IN, roughness: 0.95, side: THREE.BackSide });
+  const matIn = new THREE.MeshStandardMaterial({ color: WHITE_IN, roughness: 0.95, side: THREE.FrontSide });
   const matEdge = new THREE.MeshStandardMaterial({ color: 0xe8e2d6, roughness: 0.9 });
-  const matHidden = new THREE.MeshBasicMaterial({ visible: false });
+
+  /** Same shape facing -z (the inside of the board), so it's a normal one-sided face. */
+  function flipFace(geo) {
+    const idx = geo.index.array;
+    for (let i = 0; i < idx.length; i += 3) { const t = idx[i + 1]; idx[i + 1] = idx[i + 2]; idx[i + 2] = t; }
+    const n = geo.attributes.normal; for (let i = 0; i < n.count; i++) n.setXYZ(i, 0, 0, -1);
+    return geo;
+  }
+  /** Only the side walls of an extruded panel (drop the caps; the faces above cover them). */
+  function sideWalls(geo) {
+    const g = geo.groups.find(gr => gr.materialIndex === 1);
+    const out = new THREE.BufferGeometry();
+    for (const name of ['position', 'normal']) {
+      const a = geo.attributes[name];
+      out.setAttribute(name, new THREE.BufferAttribute(a.array.slice(g.start * 3, (g.start + g.count) * 3), 3));
+    }
+    geo.dispose();
+    return out;
+  }
 
   // scene > holder (recentering) > mirror (flip side) > root (hinge tree)
   const holder = new THREE.Group(), mirror = new THREE.Group();
@@ -58,11 +76,12 @@ export function createViewer(container) {
       const panel = new THREE.Group();
       panel.position.z = -levels.indexOf(Math.round(f.area / (m.diag * m.diag) * 1e4)) * thick * 1.05;
       const outer = new THREE.ShapeGeometry(shape); uvFor(outer, false);
-      const inner = new THREE.ShapeGeometry(shape); uvFor(inner, true);
-      const edge = new THREE.ExtrudeGeometry(shape, { depth: thick, bevelEnabled: false, curveSegments: 4 });
+      const inner = flipFace(new THREE.ShapeGeometry(shape)); uvFor(inner, true);
+      const edge = sideWalls(new THREE.ExtrudeGeometry(shape, { depth: thick, bevelEnabled: false, curveSegments: 4 }));
       const a = new THREE.Mesh(outer, matOut);
       const b = new THREE.Mesh(inner, matIn); b.position.z = -thick;
-      const e = new THREE.Mesh(edge, [matHidden, matEdge]); e.position.z = -thick;
+      const e = new THREE.Mesh(edge, matEdge); e.position.z = -thick;
+      a.name = `panel${fid + 1}_outside`; b.name = `panel${fid + 1}_inside`; e.name = `panel${fid + 1}_edge`;
       panel.add(a, b, e); parent.add(panel);
       for (const h of kids[fid]) {
         // hinge sits on the inside surface, like real board
@@ -189,8 +208,17 @@ export function createViewer(container) {
   };
   renderer.setAnimationLoop(loop);
 
+  /** Run fn(group) with the box re-parented under a group scaled by s (for exports in metres). */
+  async function withScaledBox(s, fn) {
+    recenter();
+    const g = new THREE.Group(); g.name = 'box'; g.scale.setScalar(s);
+    const pos = holder.position.clone();
+    g.add(holder); holder.position.copy(pos);
+    try { return await fn(g); } finally { scene.add(holder); holder.position.copy(pos); }
+  }
+
   return {
-    setModel, setAngles, setArtwork, playMove, stopMove, clear, camera, controls,
+    withScaledBox, setModel, setAngles, setArtwork, playMove, stopMove, clear, camera, controls,
     beginOffscreen, endOffscreen, renderNow, fitToFrame, moveRadius, placeCamera,
     get playing() { return !!move; }, get hasModel() { return !!model; },
   };
