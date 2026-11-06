@@ -15,6 +15,7 @@ import { download, safeName } from './export/download.js';
 import { saveDieline, listDielines, getDieline, deleteDieline } from './storage/library.js';
 import { BOX_STYLES, DEFAULT_BOX, generateTuckBox } from './generator/tuck-box.js';
 import { exportGLB } from './export/glb.js';
+import { makeCollapsible } from './ui/collapsible.js';
 
 const $ = id => document.getElementById(id);
 const state = {
@@ -22,6 +23,7 @@ const state = {
   art: { exterior: null, interior: null, extName: '', intName: '', extBlob: null, intBlob: null, intInside: true },
 };
 const viewer = createViewer($('view'));
+makeCollapsible(document.querySelector('aside'), { closed: ['Export', 'My dielines', 'Hinges'] });
 
 // ---------- dieline ----------
 function loadSVG(text, name) {

@@ -75,3 +75,10 @@
   .grid3 label { font-size:12px; color:#cfcfcf; display:flex; flex-direction:column; gap:3px; }
   .grid3 small { color:var(--muted); font-size:10.5px; }
   .grid3 input { width:100%; background:#232323; color:var(--text); border:1px solid #333; border-radius:6px; padding:5px 6px; font:inherit; }
+  details.sec { border-bottom:1px solid var(--line); padding-bottom:8px; }
+  details.sec > summary { list-style:none; cursor:pointer; display:flex; align-items:center; justify-content:space-between; user-select:none; }
+  details.sec > summary::-webkit-details-marker { display:none; }
+  details.sec > summary h2 { margin:16px 0 8px; }
+  details.sec > summary:hover h2 { color:var(--text); }
+  details.sec > summary::after { content:'▸'; color:var(--muted); font-size:12px; margin-top:8px; transition:transform .15s; }
+  details.sec[open] > summary::after { transform:rotate(90deg); }
