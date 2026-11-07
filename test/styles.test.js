@@ -93,3 +93,16 @@ test('mailer: double walls roll inside, lid closes to the box size', () => {
 test('every style rejects out-of-range sizes', () => {
   for (const style of Object.keys(STYLES)) assert.throws(() => generate(style, { L: 1 }), /must be/);
 });
+
+test('rsc (0201): one part, all flaps = half width, folds to box size, lid found', () => {
+  const p = { L: 305, W: 229, H: 152, t: 3, joint: 35 };
+  const { m, g } = model('rsc', p);
+  assert.equal(m.roots.length, 1);
+  assert.equal(m.stats.loosePanels, 0);
+  // 13 pieces (joint + 4 walls + 8 flaps), 12 hinges (a tree)
+  assert.equal(g.dieline.pieces.length, 13);
+  assert.equal(m.hinges.length, 12);
+  const [pts] = fold(m, presetAngles(m, 'closed'));
+  near(sorted(size(pts)), sorted([p.L + p.t, p.W + p.t, p.H + p.t]), 0.01, 'rsc');
+  assert.ok(findLid(m), 'rsc lid');
+});

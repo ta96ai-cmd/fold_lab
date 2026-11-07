@@ -22,6 +22,7 @@ export const STYLES = {
   sleeve: { label: 'Sleeve (open both ends)', code: 'SLV', group: 'Sleeves', tags: 'tube band wrap open ends',  params: { ...COMMON, glue: num('Glue flap', 15, 5, 50) }, build: sleeve },
   tray: { label: 'Tray with lid (2 pieces)', code: 'TRL', group: 'Trays & lid-and-base', tags: 'two piece lid base telescope gift',  params: { L: num('Length (L)', 120, 20, 1500), W: num('Width (W)', 80, 20, 1500), H: num('Tray height', 40, 5, 500), lidH: num('Lid height', 25, 5, 500), t: COMMON.t, clear: num('Lid clearance', 1, 0, 10, 0.25, 'extra room') }, build: trayWithLid },
   mailer: { label: 'Mailer (roll end, front tuck)', code: 'MLR', group: 'Mailers', tags: 'e-commerce shipping roll end front tuck subscription',  params: { L: num('Length (L)', 200, 40, 1500), W: num('Width (W)', 150, 40, 1500), H: num('Height (H)', 60, 15, 500), t: num('Board', 1.5, 0, 6, 0.05, 'thickness mm'), tuck: num('Front tuck', 40, 10, 400) }, build: mailer },
+  rsc: { label: 'Regular slotted container (RSC, 0201)', code: 'RSC', group: 'Corrugated shipping cartons', tags: 'corrugated rsc 0201 0427 shipping carton regular slotted container box fefco international standard', params: { L: num('Length (L)', 305, 20, 2500, 1, 'inside'), W: num('Width (W)', 229, 20, 2500, 1, 'inside'), H: num('Height (H)', 152, 20, 2500, 1, 'inside'), t: num('Board', 3, 0, 12, 0.1, 'flute thickness mm'), joint: num('Joint tab', 35, 15, 80, 1, 'manufacturer glue tab') }, build: rsc },
 };
 
 // ---------- size modes ----------
@@ -265,6 +266,26 @@ function mailer(p) {
     dims,
     hints: { root: [Lp / 2, Wp / 2], floor: true },
   };
+}
+
+// Regular slotted container (FEFCO 0201 / Packmage "0427" international standard corrugated carton).
+// Standard formula: 4 walls L,W,L,W + manufacturer joint tab; every top and bottom flap = half the
+// width, so the two outer flaps (on the L walls) meet in the centre and the box height = flap to flap.
+function rsc(p) {
+  const B = body({ ...p, glue: p.joint }, ['Back', 'Side', 'Front', 'Side']);  // L, W, L, W + joint tab (left)
+  const D = B.Wp / 2;                                                           // 0201: every flap = half the width
+  const addFlap = (i, top) => {
+    const x = B.xs[i], w = B.widths[i], yb = top ? 0 : B.Hp, outer = i === 0 || i === 2;
+    B.pieces.push({
+      pts: top ? rect(x, yb - D, w, D) : rect(x, yb, w, D),
+      label: outer ? 'Outer flap' : 'Inner flap',
+      kind: top && outer ? 'lid' : 'flap',
+    });
+    B.creases.push({ a: [x, yb], b: [x + w, yb], role: top && outer ? 'lid' : undefined });
+  };
+  [0, 1, 2, 3].forEach(i => { addFlap(i, true); addFlap(i, false); });
+  B.dims.push({ a: [B.xs[4], -D], b: [B.xs[4], 0], side: 'right', text: D, at: B.xs[4] + 8 });  // flap depth
+  return finish(B, 2, { floor: false });
 }
 
 function centroid(pts) {
