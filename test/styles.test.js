@@ -106,3 +106,14 @@ test('rsc (0201): one part, all flaps = half width, folds to box size, lid found
   near(sorted(size(pts)), sorted([p.L + p.t, p.W + p.t, p.H + p.t]), 0.01, 'rsc');
   assert.ok(findLid(m), 'rsc lid');
 });
+
+test('slotted family (0202/0206/0204/0203): one closed part at box size', () => {
+  const p = { L: 305, W: 229, H: 152, t: 3, joint: 35 };
+  for (const s of ['osc', 'fol', 'cssc', 'hsc']) {
+    const { m } = model(s, p);
+    assert.equal(m.roots.length, 1, `${s} parts`);
+    assert.equal(m.stats.loosePanels, 0, `${s} loose`);
+    const [pts] = fold(m, presetAngles(m, 'closed'));
+    near(sorted(size(pts)), sorted([p.L + p.t, p.W + p.t, p.H + p.t]), 0.01, s);
+  }
+});

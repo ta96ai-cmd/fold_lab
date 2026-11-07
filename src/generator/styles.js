@@ -13,6 +13,14 @@ const COMMON = {
   H: num('Height (H)', 120, 10, 1500, 0.5, 'inside'),
   t: num('Board', 0.4, 0, 5, 0.05, 'thickness mm'),
 };
+// Corrugated shipping-carton inputs (bigger defaults, thick flute, manufacturer joint tab).
+const CORR = {
+  L: num('Length (L)', 305, 20, 2500, 1, 'inside'),
+  W: num('Width (W)', 229, 20, 2500, 1, 'inside'),
+  H: num('Height (H)', 152, 20, 2500, 1, 'inside'),
+  t: num('Board', 3, 0, 12, 0.1, 'flute thickness mm'),
+  joint: num('Joint tab', 35, 15, 80, 1, 'manufacturer glue tab'),
+};
 
 export const STYLES = {
   rte: { label: 'Reverse tuck end', code: 'RTE', group: 'Tuck-end cartons', tags: 'folding carton tuck top bottom cosmetics pharma retail',  params: { ...COMMON, glue: num('Glue flap', 15, 5, 50), tuck: num('Tuck flap', 15, 5, 200) }, build: p => tuckEnd(p, 'rte') },
@@ -22,7 +30,11 @@ export const STYLES = {
   sleeve: { label: 'Sleeve (open both ends)', code: 'SLV', group: 'Sleeves', tags: 'tube band wrap open ends',  params: { ...COMMON, glue: num('Glue flap', 15, 5, 50) }, build: sleeve },
   tray: { label: 'Tray with lid (2 pieces)', code: 'TRL', group: 'Trays & lid-and-base', tags: 'two piece lid base telescope gift',  params: { L: num('Length (L)', 120, 20, 1500), W: num('Width (W)', 80, 20, 1500), H: num('Tray height', 40, 5, 500), lidH: num('Lid height', 25, 5, 500), t: COMMON.t, clear: num('Lid clearance', 1, 0, 10, 0.25, 'extra room') }, build: trayWithLid },
   mailer: { label: 'Mailer (roll end, front tuck)', code: 'MLR', group: 'Mailers', tags: 'e-commerce shipping roll end front tuck subscription',  params: { L: num('Length (L)', 200, 40, 1500), W: num('Width (W)', 150, 40, 1500), H: num('Height (H)', 60, 15, 500), t: num('Board', 1.5, 0, 6, 0.05, 'thickness mm'), tuck: num('Front tuck', 40, 10, 400) }, build: mailer },
-  rsc: { label: 'Regular slotted container (RSC, 0201)', code: 'RSC', group: 'Corrugated shipping cartons', tags: 'corrugated rsc 0201 0427 shipping carton regular slotted container box fefco international standard', params: { L: num('Length (L)', 305, 20, 2500, 1, 'inside'), W: num('Width (W)', 229, 20, 2500, 1, 'inside'), H: num('Height (H)', 152, 20, 2500, 1, 'inside'), t: num('Board', 3, 0, 12, 0.1, 'flute thickness mm'), joint: num('Joint tab', 35, 15, 80, 1, 'manufacturer glue tab') }, build: rsc },
+  rsc: { label: 'Regular slotted container (RSC, 0201)', code: 'RSC', group: 'Corrugated shipping cartons', tags: 'corrugated rsc 0201 0427 shipping carton regular slotted container box fefco international standard', params: { ...CORR }, build: p => slotted(p, 'rsc') },
+  osc: { label: 'Overlap slotted container (OSC, 0202)', code: 'OSC', group: 'Corrugated shipping cartons', tags: 'corrugated osc 0202 overlap slotted container outer flaps overlap strong', params: { ...CORR }, build: p => slotted(p, 'osc') },
+  fol: { label: 'Full overlap slotted (FOL, 0206)', code: 'FOL', group: 'Corrugated shipping cartons', tags: 'corrugated fol 0206 full overlap slotted heavy duty stacking rough handling', params: { ...CORR }, build: p => slotted(p, 'fol') },
+  cssc: { label: 'Centre special slotted (CSSC, 0204)', code: 'CSSC', group: 'Corrugated shipping cartons', tags: 'corrugated cssc 0204 centre special slotted all flaps meet', params: { ...CORR }, build: p => slotted(p, 'cssc') },
+  hsc: { label: 'Half-slotted container (HSC, 0203)', code: 'HSC', group: 'Corrugated shipping cartons', tags: 'corrugated hsc 0203 half slotted open top bin tote', params: { ...CORR }, build: p => slotted(p, 'hsc') },
 };
 
 // ---------- size modes ----------
@@ -268,23 +280,39 @@ function mailer(p) {
   };
 }
 
-// Regular slotted container (FEFCO 0201 / Packmage "0427" international standard corrugated carton).
-// Standard formula: 4 walls L,W,L,W + manufacturer joint tab; every top and bottom flap = half the
-// width, so the two outer flaps (on the L walls) meet in the centre and the box height = flap to flap.
-function rsc(p) {
-  const B = body({ ...p, glue: p.joint }, ['Back', 'Side', 'Front', 'Side']);  // L, W, L, W + joint tab (left)
-  const D = B.Wp / 2;                                                           // 0201: every flap = half the width
-  const addFlap = (i, top) => {
+// Slotted corrugated family (FEFCO 02xx). 4 walls L,W,L,W + manufacturer joint tab; only the flap
+// depths change between variants. Outer flaps sit on the L walls, inner flaps on the W walls.
+//   rsc  (0201) every flap = W/2, outer flaps meet.
+//   osc  (0202) outer flaps = full W (overlap), inner = W/2.
+//   fol  (0206) all flaps = full W, full overlap top and bottom (heavy duty).
+//   cssc (0204) outer = W/2, inner = L/2, so all four flaps meet at the centre.
+//   hsc  (0203) open top: bottom flaps only (W/2), used as a bin/tote.
+function slotted(p, variant) {
+  const B = body({ ...p, glue: p.joint }, ['Back', 'Side', 'Front', 'Side']);
+  const half = B.Wp / 2, full = B.Wp, meet = B.Lp / 2;
+  // [outerTop, innerTop, outerBottom, innerBottom]; null = no flap
+  const D = {
+    rsc:  [half, half, half, half],
+    osc:  [full, half, full, half],
+    fol:  [full, full, full, full],
+    cssc: [half, meet, half, meet],
+    hsc:  [null, null, half, half],
+  }[variant];
+  const addFlap = (i, top, depth) => {
+    if (!depth) return;
     const x = B.xs[i], w = B.widths[i], yb = top ? 0 : B.Hp, outer = i === 0 || i === 2;
     B.pieces.push({
-      pts: top ? rect(x, yb - D, w, D) : rect(x, yb, w, D),
+      pts: top ? rect(x, yb - depth, w, depth) : rect(x, yb, w, depth),
       label: outer ? 'Outer flap' : 'Inner flap',
       kind: top && outer ? 'lid' : 'flap',
     });
     B.creases.push({ a: [x, yb], b: [x + w, yb], role: top && outer ? 'lid' : undefined });
   };
-  [0, 1, 2, 3].forEach(i => { addFlap(i, true); addFlap(i, false); });
-  B.dims.push({ a: [B.xs[4], -D], b: [B.xs[4], 0], side: 'right', text: D, at: B.xs[4] + 8 });  // flap depth
+  [0, 1, 2, 3].forEach(i => {
+    const outer = i === 0 || i === 2;
+    addFlap(i, true, outer ? D[0] : D[1]);
+    addFlap(i, false, outer ? D[2] : D[3]);
+  });
   return finish(B, 2, { floor: false });
 }
 
