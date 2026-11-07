@@ -107,7 +107,7 @@ test('rsc (0201): one part, all flaps = half width, folds to box size, lid found
   assert.ok(findLid(m), 'rsc lid');
 });
 
-test('slotted family (0202/0206/0204/0203): one closed part at box size', () => {
+test('slotted family (0202/0203/0204/0200): one closed part at box size', () => {
   const p = { L: 305, W: 229, H: 152, t: 3, joint: 35 };
   for (const s of ['osc', 'fol', 'cssc', 'hsc']) {
     const { m } = model(s, p);

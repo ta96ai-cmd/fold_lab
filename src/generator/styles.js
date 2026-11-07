@@ -29,12 +29,12 @@ export const STYLES = {
   sealend: { label: 'Seal end (glued both ends)', code: 'SEC', group: 'Seal-end cartons', tags: 'cereal glued ends food',  params: { ...COMMON, glue: num('Glue flap', 15, 5, 50), overlap: num('Flap overlap', 12, 0, 200, 0.5, 'major flaps past centre') }, build: sealEnd },
   sleeve: { label: 'Sleeve (open both ends)', code: 'SLV', group: 'Sleeves', tags: 'tube band wrap open ends',  params: { ...COMMON, glue: num('Glue flap', 15, 5, 50) }, build: sleeve },
   tray: { label: 'Tray with lid (2 pieces)', code: 'TRL', group: 'Trays & lid-and-base', tags: 'two piece lid base telescope gift',  params: { L: num('Length (L)', 120, 20, 1500), W: num('Width (W)', 80, 20, 1500), H: num('Tray height', 40, 5, 500), lidH: num('Lid height', 25, 5, 500), t: COMMON.t, clear: num('Lid clearance', 1, 0, 10, 0.25, 'extra room') }, build: trayWithLid },
-  mailer: { label: 'Mailer (roll end, front tuck)', code: 'MLR', group: 'Mailers', tags: 'e-commerce shipping roll end front tuck subscription',  params: { L: num('Length (L)', 200, 40, 1500), W: num('Width (W)', 150, 40, 1500), H: num('Height (H)', 60, 15, 500), t: num('Board', 1.5, 0, 6, 0.05, 'thickness mm'), tuck: num('Front tuck', 40, 10, 400) }, build: mailer },
-  rsc: { label: 'Regular slotted container (RSC, 0201)', code: 'RSC', group: 'Corrugated shipping cartons', tags: 'corrugated rsc 0201 0427 shipping carton regular slotted container box fefco international standard', params: { ...CORR }, build: p => slotted(p, 'rsc') },
+  mailer: { label: 'Mailer – roll end front tuck (FEFCO 0427)', code: 'MLR', group: 'Mailers', tags: 'e-commerce shipping roll end front tuck subscription 0427 fefco postal mailer retf reft',  params: { L: num('Length (L)', 200, 40, 1500), W: num('Width (W)', 150, 40, 1500), H: num('Height (H)', 60, 15, 500), t: num('Board', 1.5, 0, 6, 0.05, 'thickness mm'), tuck: num('Front tuck', 40, 10, 400) }, build: mailer },
+  rsc: { label: 'Regular slotted container (RSC, 0201)', code: 'RSC', group: 'Corrugated shipping cartons', tags: 'corrugated rsc 0201 shipping carton regular slotted container box fefco international standard', params: { ...CORR }, build: p => slotted(p, 'rsc') },
   osc: { label: 'Overlap slotted container (OSC, 0202)', code: 'OSC', group: 'Corrugated shipping cartons', tags: 'corrugated osc 0202 overlap slotted container outer flaps overlap strong', params: { ...CORR }, build: p => slotted(p, 'osc') },
-  fol: { label: 'Full overlap slotted (FOL, 0206)', code: 'FOL', group: 'Corrugated shipping cartons', tags: 'corrugated fol 0206 full overlap slotted heavy duty stacking rough handling', params: { ...CORR }, build: p => slotted(p, 'fol') },
+  fol: { label: 'Full overlap slotted (FOL, 0203)', code: 'FOL', group: 'Corrugated shipping cartons', tags: 'corrugated fol 0203 full overlap slotted heavy duty stacking rough handling', params: { ...CORR }, build: p => slotted(p, 'fol') },
   cssc: { label: 'Centre special slotted (CSSC, 0204)', code: 'CSSC', group: 'Corrugated shipping cartons', tags: 'corrugated cssc 0204 centre special slotted all flaps meet', params: { ...CORR }, build: p => slotted(p, 'cssc') },
-  hsc: { label: 'Half-slotted container (HSC, 0203)', code: 'HSC', group: 'Corrugated shipping cartons', tags: 'corrugated hsc 0203 half slotted open top bin tote', params: { ...CORR }, build: p => slotted(p, 'hsc') },
+  hsc: { label: 'Half-slotted container (HSC, 0200)', code: 'HSC', group: 'Corrugated shipping cartons', tags: 'corrugated hsc 0200 half slotted open top bin tote', params: { ...CORR }, build: p => slotted(p, 'hsc') },
 };
 
 // ---------- size modes ----------
@@ -284,9 +284,9 @@ function mailer(p) {
 // depths change between variants. Outer flaps sit on the L walls, inner flaps on the W walls.
 //   rsc  (0201) every flap = W/2, outer flaps meet.
 //   osc  (0202) outer flaps = full W (overlap), inner = W/2.
-//   fol  (0206) all flaps = full W, full overlap top and bottom (heavy duty).
+//   fol  (0203) all flaps = full W, full overlap top and bottom (heavy duty).
 //   cssc (0204) outer = W/2, inner = L/2, so all four flaps meet at the centre.
-//   hsc  (0203) open top: bottom flaps only (W/2), used as a bin/tote.
+//   hsc  (0200) open top: bottom flaps only (W/2), used as a bin/tote.
 function slotted(p, variant) {
   const B = body({ ...p, glue: p.joint }, ['Back', 'Side', 'Front', 'Side']);
   const half = B.Wp / 2, full = B.Wp, meet = B.Lp / 2;
