@@ -30,8 +30,9 @@ export const STYLES = {
   sleeve: { label: 'Sleeve (open both ends)', code: 'SLV', group: 'Sleeves', tags: 'tube band wrap open ends',  params: { ...COMMON, glue: num('Glue flap', 15, 5, 50) }, build: sleeve },
   tray: { label: 'Tray with lid (2 pieces)', code: 'TRL', group: 'Trays & lid-and-base', tags: 'two piece lid base telescope gift',  params: { L: num('Length (L)', 120, 20, 1500), W: num('Width (W)', 80, 20, 1500), H: num('Tray height', 40, 5, 500), lidH: num('Lid height', 25, 5, 500), t: COMMON.t, clear: num('Lid clearance', 1, 0, 10, 0.25, 'extra room') }, build: trayWithLid },
   mailer: { label: 'Mailer – roll end front tuck (FEFCO 0427)', code: 'MLR', group: 'Mailers', tags: 'e-commerce shipping roll end front tuck subscription 0427 fefco postal mailer retf reft',  params: { L: num('Length (L)', 200, 40, 1500), W: num('Width (W)', 150, 40, 1500), H: num('Height (H)', 60, 15, 500), t: num('Board', 1.5, 0, 6, 0.05, 'thickness mm'), tuck: num('Front tuck', 40, 10, 400) }, build: mailer },
+  postal: { label: 'Postal box without lid side flaps (0471-style)', code: 'P471', group: 'Mailers', tags: 'postal mailer 0471 fefco die-cut hinged lid no side flaps e-commerce economy',  params: { L: num('Length (L)', 200, 40, 1500), W: num('Width (W)', 150, 40, 1500), H: num('Height (H)', 60, 15, 500), t: num('Board', 1.5, 0, 6, 0.05, 'thickness mm'), tuck: num('Front tuck', 40, 10, 400) }, build: p => mailer(p, { lidDust: false }) },
   rsc: { label: 'Regular slotted container (RSC, 0201)', code: 'RSC', group: 'Corrugated shipping cartons', tags: 'corrugated rsc 0201 shipping carton regular slotted container box fefco international standard', params: { ...CORR }, build: p => slotted(p, 'rsc') },
-  osc: { label: 'Overlap slotted container (OSC, 0202)', code: 'OSC', group: 'Corrugated shipping cartons', tags: 'corrugated osc 0202 overlap slotted container outer flaps overlap strong', params: { ...CORR }, build: p => slotted(p, 'osc') },
+  osc: { label: 'Overlap slotted container (OSC, 0202)', code: 'OSC', group: 'Corrugated shipping cartons', tags: 'corrugated osc 0202 overlap slotted container outer flaps overlap strong', params: { ...CORR, overlap: num('Outer flap overlap', 25, 25, 2500, 1, 'min 1 inch (25 mm)') }, build: p => slotted(p, 'osc') },
   fol: { label: 'Full overlap slotted (FOL, 0203)', code: 'FOL', group: 'Corrugated shipping cartons', tags: 'corrugated fol 0203 full overlap slotted heavy duty stacking rough handling', params: { ...CORR }, build: p => slotted(p, 'fol') },
   cssc: { label: 'Centre special slotted (CSSC, 0204)', code: 'CSSC', group: 'Corrugated shipping cartons', tags: 'corrugated cssc 0204 centre special slotted all flaps meet', params: { ...CORR }, build: p => slotted(p, 'cssc') },
   hsc: { label: 'Half-slotted container (HSC, 0200)', code: 'HSC', group: 'Corrugated shipping cartons', tags: 'corrugated hsc 0200 half slotted open top bin tote', params: { ...CORR }, build: p => slotted(p, 'hsc') },
@@ -239,7 +240,7 @@ function trayWithLid(p) {
   };
 }
 
-function mailer(p) {
+function mailer(p, opt = {}) {
   const { t } = p;
   const Lp = p.L + t, Wp = p.W + t, Hp = p.H + t, Hi = Hp - t, Wl = Wp + 2 * t;
   const pieces = [], creases = [], dims = [];
@@ -251,8 +252,10 @@ function mailer(p) {
   add(rect(0, -Hp - Wl, Lp, Wl), 'Lid', 'lid'); crease([0, -Hp], [Lp, -Hp], 90, 'lid');
   add(flapOnBase(0, -Hp - Wl, Lp, -1, tuckLocal(Lp, p.tuck)), 'Front tuck', 'tuck'); crease([0, -Hp - Wl], [Lp, -Hp - Wl], 90, 'tuck');
   const dd = Math.min(Hp * 0.85, Wl * 0.45);
-  add(flapOnSide(0, -Hp - Wl, Wl, -1, dustLocal(Wl, dd)), 'Dust flap', 'flap'); crease([0, -Hp - Wl], [0, -Hp]);
-  add(flapOnSide(Lp, -Hp - Wl, Wl, 1, dustLocal(Wl, dd)), 'Dust flap', 'flap'); crease([Lp, -Hp - Wl], [Lp, -Hp]);
+  if (opt.lidDust !== false) {   // 0471-style: lid has no side dust flaps
+    add(flapOnSide(0, -Hp - Wl, Wl, -1, dustLocal(Wl, dd)), 'Dust flap', 'flap'); crease([0, -Hp - Wl], [0, -Hp]);
+    add(flapOnSide(Lp, -Hp - Wl, Wl, 1, dustLocal(Wl, dd)), 'Dust flap', 'flap'); crease([Lp, -Hp - Wl], [Lp, -Hp]);
+  }
   // front wall rolls over (double wall)
   add(rect(0, Wp, Lp, Hp), 'Front'); crease([0, Wp], [Lp, Wp]);
   add(rect(0, Wp + Hp, Lp, Hi), 'Front inner'); crease([0, Wp + Hp], [Lp, Wp + Hp], 180);
@@ -283,17 +286,17 @@ function mailer(p) {
 // Slotted corrugated family (FEFCO 02xx). 4 walls L,W,L,W + manufacturer joint tab; only the flap
 // depths change between variants. Outer flaps sit on the L walls, inner flaps on the W walls.
 //   rsc  (0201) every flap = W/2, outer flaps meet.
-//   osc  (0202) outer flaps = full W (overlap), inner = W/2.
+//   osc  (0202) outer flaps overlap by `overlap` (min 25 mm), inner = W/2.
 //   fol  (0203) all flaps = full W, full overlap top and bottom (heavy duty).
 //   cssc (0204) outer = W/2, inner = L/2, so all four flaps meet at the centre.
 //   hsc  (0200) open top: bottom flaps only (W/2), used as a bin/tote.
 function slotted(p, variant) {
   const B = body({ ...p, glue: p.joint }, ['Back', 'Side', 'Front', 'Side']);
-  const half = B.Wp / 2, full = B.Wp, meet = B.Lp / 2;
+  const half = B.Wp / 2, full = B.Wp, meet = B.Lp / 2, lap = Math.min((B.Wp + (p.overlap ?? 25)) / 2, full);
   // [outerTop, innerTop, outerBottom, innerBottom]; null = no flap
   const D = {
     rsc:  [half, half, half, half],
-    osc:  [full, half, full, half],
+    osc:  [lap, half, lap, half],
     fol:  [full, full, full, full],
     cssc: [half, meet, half, meet],
     hsc:  [null, null, half, half],

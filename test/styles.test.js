@@ -117,3 +117,13 @@ test('slotted family (0202/0203/0204/0200): one closed part at box size', () => 
     near(sorted(size(pts)), sorted([p.L + p.t, p.W + p.t, p.H + p.t]), 0.01, s);
   }
 });
+
+test('postal 0471-style: mailer without lid side flaps, folds closed', () => {
+  const p = { L: 200, W: 150, H: 60, t: 1.5, tuck: 40 };
+  const a = model('mailer', p), b = model('postal', p);
+  assert.equal(b.g.dieline.pieces.length, a.g.dieline.pieces.length - 2);
+  assert.equal(b.m.roots.length, 1); assert.equal(b.m.stats.loosePanels, 0);
+  const [pts] = fold(b.m, presetAngles(b.m, 'closed'));
+  near(sorted(size(pts)), sorted([p.L + p.t, p.W + p.t + 2 * p.t, p.H + p.t]), 2 * p.t + 0.01, 'postal');
+  assert.ok(findLid(b.m));
+});
