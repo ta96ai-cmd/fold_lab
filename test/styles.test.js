@@ -171,3 +171,12 @@ test('fliptop options: tuck wings, single front wall, double-crease rim; folds c
   assert.equal(m2('Tuck wing'), 0); assert.equal(m2('Rim'), 0); assert.equal(m2('Front inner'), 1);
   assert.equal(plain.m.stats.loosePanels, 0);
 });
+
+test('fliptop chamfer: rounds ear and inner-wall corners, still one closed part', () => {
+  const p = { L: 300, W: 200, H: 50, t: 3 };
+  const sq = model('fliptop', p), rd = model('fliptop', { ...p, chamfer: 1 });
+  const pts = (g, l) => g.dieline.pieces.filter(pc => pc.label === l).reduce((n, pc) => n + pc.pts.length, 0);
+  assert.ok(pts(rd.g, 'Ear') > pts(sq.g, 'Ear'));
+  assert.ok(pts(rd.g, 'Side inner') > pts(sq.g, 'Side inner'));
+  assert.equal(rd.m.roots.length, 1); assert.equal(rd.m.stats.loosePanels, 0); assert.equal(rd.m.stats.holes, 4);
+});
