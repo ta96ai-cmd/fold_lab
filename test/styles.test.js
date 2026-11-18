@@ -157,3 +157,17 @@ test('counts (lock tabs) are marked as counts and their error has no unit', () =
   assert.equal(STYLES.fliptop.params.locks.count, true);
   assert.throws(() => generate('fliptop', { locks: 5 }), /Lock tabs per side must be 0–3(?! mm)/);
 });
+test('fliptop options: tuck wings, single front wall, double-crease rim; folds closed at box height', () => {
+  const p = { L: 300, W: 200, H: 50, t: 3 };
+  const { m, g } = model('fliptop', p);
+  const n = l => g.dieline.pieces.filter(pc => pc.label === l).length;
+  assert.equal(n('Tuck wing'), 2); assert.equal(n('Rim'), 2); assert.equal(n('Front inner'), 0);
+  assert.equal(m.roots.length, 1); assert.equal(m.stats.loosePanels, 0); assert.equal(m.stats.holes, 4);
+  const [pts] = fold(m, presetAngles(m, 'closed'));
+  const z = sorted(size(pts));
+  assert.ok(z[0] < p.H + p.t + 12, `closed height ${z[0].toFixed(1)} (inner walls fold down, not up)`);
+  const plain = model('fliptop', { ...p, tuckStyle: 1, dblCrease: 0, frontDouble: 1 });
+  const m2 = l => plain.g.dieline.pieces.filter(pc => pc.label === l).length;
+  assert.equal(m2('Tuck wing'), 0); assert.equal(m2('Rim'), 0); assert.equal(m2('Front inner'), 1);
+  assert.equal(plain.m.stats.loosePanels, 0);
+});

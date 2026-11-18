@@ -4,7 +4,7 @@
 // Allowance rule used everywhere: panel = inside size + board thickness (t).
 // These are standard starting values for proofs, not a die-maker's specification.
 
-import { buildDieline, rect, flapOnBase, flapOnSide, tuckLocal, dustLocal, glueLocal } from './core.js';
+import { buildDieline, rect, flapOnBase, flapOnSide, tuckLocal, dustLocal, glueLocal, roundCorner } from './core.js';
 
 const num = (label, def, min, max, step = 0.5, hint = '') => ({ label, def, min, max, step, hint });
 const count = (label, def, min, max, hint = '') => ({ label, def, min, max, step: 1, hint, count: true });   // a number of things, not a length
@@ -31,7 +31,7 @@ export const STYLES = {
   sleeve: { label: 'Sleeve (open both ends)', code: 'SLV', group: 'Sleeves', tags: 'tube band wrap open ends',  params: { ...COMMON, glue: num('Glue flap', 15, 5, 50) }, build: sleeve },
   tray: { label: 'Tray with lid (2 pieces)', code: 'TRL', group: 'Trays & lid-and-base', tags: 'two piece lid base telescope gift',  params: { L: num('Length (L)', 120, 20, 1500), W: num('Width (W)', 80, 20, 1500), H: num('Tray height', 40, 5, 500), lidH: num('Lid height', 25, 5, 500), t: COMMON.t, clear: num('Lid clearance', 1, 0, 10, 0.25, 'extra room') }, build: trayWithLid },
   mailer: { label: 'Mailer – roll end front tuck (FEFCO 0427)', code: 'MLR', group: 'Mailers', tags: 'e-commerce shipping roll end front tuck subscription 0427 fefco postal mailer retf reft',  params: { L: num('Length (L)', 200, 40, 1500), W: num('Width (W)', 150, 40, 1500), H: num('Height (H)', 60, 15, 500), t: num('Board', 1.5, 0, 6, 0.05, 'thickness mm'), tuck: num('Front tuck', 40, 10, 400) }, build: mailer },
-  fliptop: { label: 'Flip-top mailer with lock tabs (0427 type)', code: 'FTM', group: 'Mailers', tags: 'flip top lid lock tabs slots finger notch keyboard corrugated color box mailer 0427 e-commerce',  params: { L: num('Length (L)', 300, 40, 1500), W: num('Width (W)', 200, 40, 1500), H: num('Height (H)', 50, 15, 500), t: num('Board', 3, 0, 8, 0.1, 'thickness mm'), tuck: num('Front tuck', 40, 10, 400), notch: num('Finger notch radius', 12, 0, 40, 0.5, '0 = no notch'), locks: count('Lock tabs per side', 2, 0, 3, '0 = no tabs') }, build: p => mailer(p, { notch: p.notch, locks: p.locks }) },
+  fliptop: { label: 'Flip-top mailer with lock tabs (0427 type)', code: 'FTM', group: 'Mailers', tags: 'flip top lid lock tabs slots finger notch keyboard corrugated color box mailer 0427 e-commerce',  params: { L: num('Length (L)', 300, 40, 1500), W: num('Width (W)', 200, 40, 1500), H: num('Height (H)', 50, 15, 500), t: num('Board', 3, 0, 8, 0.1, 'thickness mm'), tuck: num('Front tuck', 40, 10, 400), notch: num('Finger notch radius', 12, 0, 40, 0.5, '0 = no notch'), locks: count('Lock tabs per side', 2, 0, 3, '0 = no tabs'), tuckStyle: count('Tuck style', 2, 1, 2, '1 = plain, 2 = with side wings'), corner: num('Corner radius', 10, 0, 60, 0.5, 'wings and lid flaps, 0 = square'), dblCrease: count('Double crease on side walls', 1, 0, 1, '1 = yes, 0 = single crease'), frontDouble: count('Double front wall', 0, 0, 1, '1 = yes, 0 = single wall') }, build: p => mailer(p, { notch: p.notch, locks: p.locks, wings: p.tuckStyle === 2, corner: p.corner, dbl: p.dblCrease === 1, frontInner: p.frontDouble === 1, rectEars: true }) },
   postal: { label: 'Postal box without lid side flaps (0471-style)', code: 'P471', group: 'Mailers', tags: 'postal mailer 0471 fefco die-cut hinged lid no side flaps e-commerce economy',  params: { L: num('Length (L)', 200, 40, 1500), W: num('Width (W)', 150, 40, 1500), H: num('Height (H)', 60, 15, 500), t: num('Board', 1.5, 0, 6, 0.05, 'thickness mm'), tuck: num('Front tuck', 40, 10, 400) }, build: p => mailer(p, { lidDust: false }) },
   rsc: { label: 'Regular slotted container (RSC, 0201)', code: 'RSC', group: 'Corrugated shipping cartons', tags: 'corrugated rsc 0201 shipping carton regular slotted container box fefco international standard', params: { ...CORR }, build: p => slotted(p, 'rsc') },
   osc: { label: 'Overlap slotted container (OSC, 0202)', code: 'OSC', group: 'Corrugated shipping cartons', tags: 'corrugated osc 0202 overlap slotted container outer flaps overlap strong', params: { ...CORR, overlap: num('Outer flap overlap', 25, 25, 2500, 1, 'min 1 inch (25 mm)') }, build: p => slotted(p, 'osc') },
@@ -242,54 +242,116 @@ function trayWithLid(p) {
   };
 }
 
+// opt (flip-top options; the plain mailer and postal box use the defaults):
+//   notch      finger notch radius on the front tuck      locks   lock tabs per side (+ base slots)
+//   wings      tuck with rounded side wings               corner  corner radius of wings and lid flaps (round shapes)
+//   dbl        double crease on the side-wall roll-over   frontInner false = single front wall
+//   rectEars   plain rectangular ears                     lidDust false = no lid side flaps (0471-style)
 function mailer(p, opt = {}) {
   const { t } = p;
-  const Lp = p.L + t, Wp = p.W + t, Hp = p.H + t, Hi = Hp - t, Wl = Wp + 2 * t;
+  const g = opt.dbl ? 2 * t + 1 : 0;                    // double-crease gap (top rim of the double side wall)
+  const Lp = p.L + t + 2 * g, Wp = p.W + t, Hp = p.H + t, Hi = Hp - t, Wl = Wp + 2 * t;
   const pieces = [], creases = [], dims = [];
   const add = (pts, label, kind = 'panel') => pieces.push({ pts, label, kind });
   const crease = (a, b, fold = 90, role) => creases.push({ a, b, fold, role });
+  const round = opt.corner !== undefined;
   add(rect(0, 0, Lp, Wp), 'Base');
   // back wall, lid, front tuck, lid dust flaps
   add(rect(0, -Hp, Lp, Hp), 'Back'); crease([0, 0], [Lp, 0]);
   add(rect(0, -Hp - Wl, Lp, Wl), 'Lid', 'lid'); crease([0, -Hp], [Lp, -Hp], 90, 'lid');
-  add(flapOnBase(0, -Hp - Wl, Lp, -1, opt.notch ? notchedTuck(Lp, p.tuck, opt.notch) : tuckLocal(Lp, p.tuck)), 'Front tuck', 'tuck'); crease([0, -Hp - Wl], [Lp, -Hp - Wl], 90, 'tuck');
-  const dd = Math.min(Hp * 0.85, Wl * 0.45);
-  if (opt.lidDust !== false) {   // 0471-style: lid has no side dust flaps
-    add(flapOnSide(0, -Hp - Wl, Wl, -1, dustLocal(Wl, dd)), 'Dust flap', 'flap'); crease([0, -Hp - Wl], [0, -Hp]);
-    add(flapOnSide(Lp, -Hp - Wl, Wl, 1, dustLocal(Wl, dd)), 'Dust flap', 'flap'); crease([Lp, -Hp - Wl], [Lp, -Hp]);
+  const yT = -Hp - Wl, k = p.tuck;
+  const tuck = opt.wings ? rectTuck(Lp, k, opt.notch || 0) : opt.notch ? notchedTuck(Lp, k, opt.notch) : tuckLocal(Lp, k);
+  add(flapOnBase(0, yT, Lp, -1, tuck), 'Front tuck', 'tuck'); crease([0, yT], [Lp, yT], 90, 'tuck');
+  if (opt.wings) {                                      // side wings slide into the double side walls
+    const ww = Math.min(Hi * 0.85, Wl * 0.4), wl = wingLocal(k, ww, opt.corner || 0);
+    add(flapOnSide(0, yT - k, k, -1, wl), 'Tuck wing', 'flap'); crease([0, yT - k], [0, yT]);
+    add(flapOnSide(Lp, yT - k, k, 1, wl), 'Tuck wing', 'flap'); crease([Lp, yT - k], [Lp, yT]);
   }
-  // front wall rolls over (double wall)
+  const dd = Math.min(Hp * 0.85, Wl * 0.45);
+  if (opt.lidDust !== false) {
+    const dl = round ? roundDust(Wl, dd, opt.corner) : dustLocal(Wl, dd);
+    add(flapOnSide(0, yT, Wl, -1, dl), 'Dust flap', 'flap'); crease([0, yT], [0, -Hp]);
+    add(flapOnSide(Lp, yT, Wl, 1, dl), 'Dust flap', 'flap'); crease([Lp, yT], [Lp, -Hp]);
+  }
+  // front wall (rolls over to a double wall unless frontInner === false)
   add(rect(0, Wp, Lp, Hp), 'Front'); crease([0, Wp], [Lp, Wp]);
-  add(rect(0, Wp + Hp, Lp, Hi), 'Front inner'); crease([0, Wp + Hp], [Lp, Wp + Hp], 180);
-  // side walls roll over (double walls)
-  add(rect(-Hp, 0, Hp, Wp), 'Side'); crease([0, 0], [0, Wp]);
+  if (opt.frontInner !== false) { add(rect(0, Wp + Hp, Lp, Hi), 'Front inner'); crease([0, Wp + Hp], [Lp, Wp + Hp], 180); }
+  // side walls roll over (double walls): one 180° crease, or two 90° creases with a rim between
   const locks = lockTabs(Wp, t, opt.locks || 0);
-  add(sideInner(-Hp, Hi, Wp, -1, locks), 'Side inner'); crease([-Hp, 0], [-Hp, Wp], 180);
+  add(rect(-Hp, 0, Hp, Wp), 'Side'); crease([0, 0], [0, Wp]);
   add(rect(Lp, 0, Hp, Wp), 'Side'); crease([Lp, 0], [Lp, Wp]);
-  add(sideInner(Lp + Hp, Hi, Wp, 1, locks), 'Side inner'); crease([Lp + Hp, 0], [Lp + Hp, Wp], 180);
-  // slots in the base where the tabs come through (just inside each side crease)
+  if (g) {
+    add(rect(-Hp - g, 0, g, Wp), 'Rim', 'flap'); crease([-Hp, 0], [-Hp, Wp]);
+    add(sideInner(-Hp - g, Hi, Wp, -1, locks), 'Side inner'); crease([-Hp - g, 0], [-Hp - g, Wp]);
+    add(rect(Lp + Hp, 0, g, Wp), 'Rim', 'flap'); crease([Lp + Hp, 0], [Lp + Hp, Wp]);
+    add(sideInner(Lp + Hp + g, Hi, Wp, 1, locks), 'Side inner'); crease([Lp + Hp + g, 0], [Lp + Hp + g, Wp]);
+  } else {
+    add(sideInner(-Hp, Hi, Wp, -1, locks), 'Side inner'); crease([-Hp, 0], [-Hp, Wp], 180);
+    add(sideInner(Lp + Hp, Hi, Wp, 1, locks), 'Side inner'); crease([Lp + Hp, 0], [Lp + Hp, Wp], 180);
+  }
+  // slots in the base where the tabs come through (under the inner wall)
   const holes = [];
-  locks.forEach(k => {
-    holes.push(rect(k.gap, k.c - k.sl / 2, k.sw, k.sl));
-    holes.push(rect(Lp - k.gap - k.sw, k.c - k.sl / 2, k.sw, k.sl));
+  locks.forEach(q => {
+    const x0 = g ? g - q.sw / 2 : q.gap;
+    holes.push(rect(x0, q.c - q.sl / 2, q.sw, q.sl));
+    holes.push(rect(Lp - x0 - q.sw, q.c - q.sl / 2, q.sw, q.sl));
   });
   // ears on back and front walls, locked inside the double side walls
-  const e = Math.min(Wp * 0.42, Hp * 1.2), tap = Math.min(e * 0.35, Hp * 0.3);
-  const earAway = [[0, 0], [0, e * 0.9], [Hp - tap, e], [Hp, 0]];      // touches the side wall only at a corner
-  const earNear = [[0, 0], [tap, e], [Hp, e * 0.9], [Hp, 0]];
-  add(flapOnSide(0, -Hp, Hp, -1, earAway), 'Ear', 'flap'); crease([0, -Hp], [0, 0]);
-  add(flapOnSide(Lp, -Hp, Hp, 1, earAway), 'Ear', 'flap'); crease([Lp, -Hp], [Lp, 0]);
-  add(flapOnSide(0, Wp, Hp, -1, earNear), 'Ear', 'flap'); crease([0, Wp], [0, Wp + Hp]);
-  add(flapOnSide(Lp, Wp, Hp, 1, earNear), 'Ear', 'flap'); crease([Lp, Wp], [Lp, Wp + Hp]);
-  dims.push({ a: [0, -Hp - Wl], b: [Lp, -Hp - Wl], side: 'top', text: Lp });
-  dims.push({ a: [Lp + Hp + Hi, 0], b: [Lp + Hp + Hi, Wp], side: 'right', text: Wp });
-  dims.push({ a: [Lp + Hp + Hi, -Hp], b: [Lp + Hp + Hi, 0], side: 'right', text: Hp });
+  if (opt.rectEars) {
+    const e = Wp / 2 - 1, ear = [[0, 0], [0, e], [Hp, e], [Hp, 0]];
+    add(flapOnSide(0, -Hp, Hp, -1, ear), 'Ear', 'flap'); crease([0, -Hp], [0, 0]);
+    add(flapOnSide(Lp, -Hp, Hp, 1, ear), 'Ear', 'flap'); crease([Lp, -Hp], [Lp, 0]);
+    add(flapOnSide(0, Wp, Hp, -1, ear), 'Ear', 'flap'); crease([0, Wp], [0, Wp + Hp]);
+    add(flapOnSide(Lp, Wp, Hp, 1, ear), 'Ear', 'flap'); crease([Lp, Wp], [Lp, Wp + Hp]);
+  } else {
+    const e = Math.min(Wp * 0.42, Hp * 1.2), tap = Math.min(e * 0.35, Hp * 0.3);
+    const earAway = [[0, 0], [0, e * 0.9], [Hp - tap, e], [Hp, 0]];      // touches the side wall only at a corner
+    const earNear = [[0, 0], [tap, e], [Hp, e * 0.9], [Hp, 0]];
+    add(flapOnSide(0, -Hp, Hp, -1, earAway), 'Ear', 'flap'); crease([0, -Hp], [0, 0]);
+    add(flapOnSide(Lp, -Hp, Hp, 1, earAway), 'Ear', 'flap'); crease([Lp, -Hp], [Lp, 0]);
+    add(flapOnSide(0, Wp, Hp, -1, earNear), 'Ear', 'flap'); crease([0, Wp], [0, Wp + Hp]);
+    add(flapOnSide(Lp, Wp, Hp, 1, earNear), 'Ear', 'flap'); crease([Lp, Wp], [Lp, Wp + Hp]);
+  }
+  const xr = Lp + Hp + g + Hi;
+  dims.push({ a: [0, yT], b: [Lp, yT], side: 'top', text: Lp });
+  dims.push({ a: [xr, 0], b: [xr, Wp], side: 'right', text: Wp });
+  dims.push({ a: [xr, -Hp], b: [xr, 0], side: 'right', text: Hp });
   return {
     dieline: buildDieline(pieces, creases, holes),
     labels: pieces.map(pc => ({ text: pc.label, at: centroid(pc.pts), kind: pc.kind })),
     dims,
     hints: { root: [Lp / 2, Wp / 2], floor: true },
   };
+}
+
+// Square front tuck (its ends carry the side wings), with an optional half-round finger notch.
+function rectTuck(w, depth, r0) {
+  if (!r0) return [[0, 0], [0, depth], [w, depth], [w, 0]];
+  const r = Math.min(r0, depth * 0.6, w * 0.2), arc = [];
+  for (let k = 0; k <= 12; k++) { const th = Math.PI * (1 - k / 12); arc.push([w / 2 + r * Math.cos(th), depth - r * Math.sin(th)]); }
+  return [[0, 0], [0, depth], ...arc, [w, depth], [w, 0]];
+}
+
+// Tuck side wing (local: u along the tuck end from its free edge, d outward), rounded at the free outer corner.
+function wingLocal(len, ww, r0) {
+  const r = Math.min(r0, len * 0.6, ww * 0.6), c = Math.min(3, ww * 0.1);
+  const out = [[0, 0]];
+  if (r > 0) { const A = [0, ww - r], B = [r, ww]; out.push(A, ...roundCorner(A, [0, ww], B), B); } else out.push([0, ww]);
+  out.push([len - c, ww], [len, ww - c], [len, 0]);
+  return out;
+}
+
+// Lid side flap with tapered ends and rounded outer corners (radius 0 = straight corners).
+function roundDust(len, dd, r0) {
+  const a1 = Math.min(dd * 0.2, len * 0.06), a2 = Math.min(dd * 0.35, len * 0.12);
+  const P = [[0, 0], [a1, dd], [len - a2, dd], [len, 0]];
+  const r = Math.min(r0, dd * 0.45, (len - a1 - a2) * 0.3);
+  if (!(r > 0)) return P;
+  const toward = (from, to, d) => { const L = Math.hypot(to[0] - from[0], to[1] - from[1]); return [from[0] + (to[0] - from[0]) * d / L, from[1] + (to[1] - from[1]) * d / L]; };
+  const out = [P[0]];
+  for (const i of [1, 2]) { const A = toward(P[i], P[i - 1], r), B = toward(P[i], P[i + 1], r); out.push(A, ...roundCorner(A, P[i], B), B); }
+  out.push(P[3]);
+  return out;
 }
 
 // Front tuck with a half-round finger notch in the middle of its free edge.
