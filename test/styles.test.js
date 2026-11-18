@@ -191,3 +191,14 @@ test('fliptop die-cut size: L = base crease to crease; tabs at quarter points', 
   const centres = [...new Set(slots.map(e => Math.round(((e.a[1] + e.b[1]) / 2 - y0) * 10) / 10))];
   assert.ok(centres.some(c => Math.abs(c - 50) < 1) && centres.some(c => Math.abs(c - 150) < 1), centres.join(','));
 });
+
+test('fliptop board compensation: back/tuck in by t, lid in by gap + t, front in by 2t', () => {
+  const t = 3, g = generate('fliptop', toInside({ L: 300, W: 200, H: 50, t }, 'diecut'));
+  const w = l => { const pc = g.dieline.pieces.find(q => q.label === l); const xs = pc.pts.map(q => q[0]); return Math.max(...xs) - Math.min(...xs); };
+  assert.ok(Math.abs(w('Base') - 300) < 1e-6);
+  assert.ok(Math.abs(w('Back') - (300 - 2 * t)) < 1e-6);
+  assert.ok(Math.abs(w('Lid') - (300 - 2 * (2 * t + 1 + t))) < 1e-6);
+  assert.ok(Math.abs(w('Front') - (300 - 4 * t)) < 1e-6);
+  const m = buildModel(toEngineSegments(g.dieline), { rootPoint: { x: g.hints.root[0], y: -g.hints.root[1] } });
+  assert.equal(m.roots.length, 1); assert.equal(m.stats.loosePanels, 0);
+});
