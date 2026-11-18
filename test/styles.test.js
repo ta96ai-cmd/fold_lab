@@ -150,3 +150,10 @@ test('fliptop: finger notch, lock tabs and base slots; slots are not panels', ()
   assert.ok(Math.max(...sz) < p.L + 20 && Math.min(...sz) < p.H + 20, 'closed box near its size');
   assert.ok(findLid(m));
 });
+
+
+
+test('counts (lock tabs) are marked as counts and their error has no unit', () => {
+  assert.equal(STYLES.fliptop.params.locks.count, true);
+  assert.throws(() => generate('fliptop', { locks: 5 }), /Lock tabs per side must be 0–3(?! mm)/);
+});
