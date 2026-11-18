@@ -11,7 +11,7 @@ const UNIT = { mm: { f: 1, label: 'mm', step: 0.5 }, cm: { f: 10, label: 'cm', s
 const PT = 0.0254; // caliper point = 0.001 inch
 
 export function initMaker({ onFold }) {
-  const st = { style: 'rte', units: 'mm', mode: 'inside', boardUnit: 'mm', params: defaults('rte'), view: 'dieline', zoom: null, gen: null, cat: 'All' };
+  const st = { style: 'rte', units: 'mm', mode: 'inside', boardUnit: 'mm', params: defaults('rte'), view: 'dieline', zoom: null, gen: null, cat: 'All', typed: false };   // typed: the user has entered their own sizes
 
   // ---------- gallery ----------
   const thumbCache = new Map();
@@ -51,7 +51,8 @@ export function initMaker({ onFold }) {
   function selectStyle(k) {
     // keep the sizes; keep the board only between styles made of the same board (carton vs corrugated)
     const sameBoard = STYLES[st.style].params.t?.def === STYLES[k].params.t?.def;
-    const keep = ['L', 'W', 'H', ...(sameBoard ? ['t'] : [])].filter(x => x in st.params && x in STYLES[k].params);
+    // sizes carry over only once the user has typed their own; otherwise each style opens at its own size
+    const keep = [...(st.typed ? ['L', 'W', 'H'] : []), ...(sameBoard ? ['t'] : [])].filter(x => x in st.params && x in STYLES[k].params);
     const old = st.params; st.style = k; st.params = defaults(k);
     keep.forEach(x => (st.params[x] = old[x]));
     renderStyleCard(); renderParams(); update();
@@ -83,6 +84,7 @@ export function initMaker({ onFold }) {
         // keep the sizes as the user entered them (in the current size mode), then convert to inside
         const disp = fromInside(st.params, st.mode); disp[k] = fromShown(k, v);
         st.params = toInside(disp, st.mode);
+        if (isSizeKey(k)) st.typed = true;
         update();
       };
       const bu = lab.querySelector('select.bu');
