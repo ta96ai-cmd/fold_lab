@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { buildModel } from '../src/engine/fold-engine.js';
 import { presetAngles, findLid } from '../src/engine/presets.js';
-import { STYLES, generate } from '../src/generator/styles.js';
+import { STYLES, generate, toInside } from '../src/generator/styles.js';
 import { toEngineSegments } from '../src/generator/core.js';
 
 // Pure-math fold of every part; returns points per root.
@@ -179,4 +179,15 @@ test('fliptop chamfer: rounds ear and inner-wall corners, still one closed part'
   assert.ok(pts(rd.g, 'Ear') > pts(sq.g, 'Ear'));
   assert.ok(pts(rd.g, 'Side inner') > pts(sq.g, 'Side inner'));
   assert.equal(rd.m.roots.length, 1); assert.equal(rd.m.stats.loosePanels, 0); assert.equal(rd.m.stats.holes, 4);
+});
+
+test('fliptop die-cut size: L = base crease to crease; tabs at quarter points', () => {
+  const g = generate('fliptop', toInside({ L: 300, W: 200, H: 50, t: 3 }, 'diecut'));
+  const base = g.dieline.pieces.find(pc => pc.label === 'Base');
+  const xs = base.pts.map(q => q[0]), ys = base.pts.map(q => q[1]);
+  assert.ok(Math.abs(Math.max(...xs) - Math.min(...xs) - 300) < 1e-6);
+  assert.ok(Math.abs(Math.max(...ys) - Math.min(...ys) - 200) < 1e-6);
+  const slots = g.dieline.cuts.filter(e => e.hole), y0 = Math.min(...ys);
+  const centres = [...new Set(slots.map(e => Math.round(((e.a[1] + e.b[1]) / 2 - y0) * 10) / 10))];
+  assert.ok(centres.some(c => Math.abs(c - 50) < 1) && centres.some(c => Math.abs(c - 150) < 1), centres.join(','));
 });
