@@ -82,6 +82,30 @@ export function buildModel(segsIn, opt = {}) {
     });
   }
 
+  // 3b. holes: a closed group of cut lines that touches nothing else and has no creases (lock slots,
+  // handle holes, windows) lies inside a panel. It is cut by the die but is not a panel, so leave it out.
+  const par = verts.map((_, i) => i);
+  const find = i => { while (par[i] !== i) i = par[i] = par[par[i]]; return i; };
+  edges.forEach((e, i) => { if (alive[i]) par[find(e.u)] = find(e.v); });
+  const comp = new Map();
+  edges.forEach((e, i) => {
+    if (!alive[i]) return;
+    const r = find(e.u);
+    if (!comp.has(r)) comp.set(r, { ids: [], crease: false, bb: [Infinity, Infinity, -Infinity, -Infinity] });
+    const c = comp.get(r); c.ids.push(i); if (e.type === 'crease') c.crease = true;
+    for (const p of [verts[e.u], verts[e.v]]) {
+      c.bb[0] = Math.min(c.bb[0], p.x); c.bb[1] = Math.min(c.bb[1], p.y);
+      c.bb[2] = Math.max(c.bb[2], p.x); c.bb[3] = Math.max(c.bb[3], p.y);
+    }
+  });
+  const parts = [...comp.values()].filter(c => c.crease);
+  let holes = 0;
+  for (const c of comp.values()) {
+    if (c.crease) continue;
+    const inside = parts.some(q => c.bb[0] > q.bb[0] && c.bb[1] > q.bb[1] && c.bb[2] < q.bb[2] && c.bb[3] < q.bb[3]);
+    if (inside) { c.ids.forEach(i => (alive[i] = false)); holes++; }
+  }
+
   // 4. half-edges and faces
   const out = verts.map(() => []);
   edges.forEach((e, i) => {
@@ -184,7 +208,7 @@ export function buildModel(segsIn, opt = {}) {
       panels: connected.length, hinges: hinges.length,
       cutEdges: edges.filter((e, i) => alive[i] && e.type === 'cut').length,
       creaseEdges: edges.filter((e, i) => alive[i] && e.type === 'crease').length,
-      loosePanels: faces.length - connected.length,
+      loosePanels: faces.length - connected.length, holes,
     },
   };
 }

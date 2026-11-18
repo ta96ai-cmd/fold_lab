@@ -127,3 +127,26 @@ test('postal 0471-style: mailer without lid side flaps, folds closed', () => {
   near(sorted(size(pts)), sorted([p.L + p.t, p.W + p.t + 2 * p.t, p.H + p.t]), 2 * p.t + 0.01, 'postal');
   assert.ok(findLid(b.m));
 });
+
+test('osc (0202): outer flaps overlap by the set amount, not full width', () => {
+  const p = { L: 305, W: 229, H: 152, t: 3, joint: 35, overlap: 40 };
+  const { g } = model('osc', p);
+  const outer = g.dieline.pieces.filter(pc => pc.label === 'Outer flap');
+  const depth = pc => Math.max(...pc.pts.map(q => q[1])) - Math.min(...pc.pts.map(q => q[1]));
+  outer.forEach(pc => assert.ok(Math.abs(depth(pc) - (p.W + p.t + 40) / 2) < 0.01));
+});
+
+test('fliptop: finger notch, lock tabs and base slots; slots are not panels', () => {
+  const p = { L: 300, W: 200, H: 50, t: 3, tuck: 40, notch: 12, locks: 2 };
+  const { m, g } = model('fliptop', p);
+  assert.equal(m.roots.length, 1); assert.equal(m.stats.loosePanels, 0);
+  assert.equal(m.stats.holes, 4);                                   // 2 slots per side
+  assert.equal(g.dieline.cuts.filter(e => e.hole).length, 16);      // 4 rectangles x 4 edges
+  const plain = model('fliptop', { ...p, notch: 0, locks: 0 });
+  assert.equal(plain.m.stats.holes, 0);
+  assert.equal(g.dieline.pieces.length, plain.g.dieline.pieces.length);
+  const [pts] = fold(m, presetAngles(m, 'closed'));
+  const sz = size(pts);
+  assert.ok(Math.max(...sz) < p.L + 20 && Math.min(...sz) < p.H + 20, 'closed box near its size');
+  assert.ok(findLid(m));
+});

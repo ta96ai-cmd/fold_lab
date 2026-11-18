@@ -30,6 +30,7 @@ export const STYLES = {
   sleeve: { label: 'Sleeve (open both ends)', code: 'SLV', group: 'Sleeves', tags: 'tube band wrap open ends',  params: { ...COMMON, glue: num('Glue flap', 15, 5, 50) }, build: sleeve },
   tray: { label: 'Tray with lid (2 pieces)', code: 'TRL', group: 'Trays & lid-and-base', tags: 'two piece lid base telescope gift',  params: { L: num('Length (L)', 120, 20, 1500), W: num('Width (W)', 80, 20, 1500), H: num('Tray height', 40, 5, 500), lidH: num('Lid height', 25, 5, 500), t: COMMON.t, clear: num('Lid clearance', 1, 0, 10, 0.25, 'extra room') }, build: trayWithLid },
   mailer: { label: 'Mailer – roll end front tuck (FEFCO 0427)', code: 'MLR', group: 'Mailers', tags: 'e-commerce shipping roll end front tuck subscription 0427 fefco postal mailer retf reft',  params: { L: num('Length (L)', 200, 40, 1500), W: num('Width (W)', 150, 40, 1500), H: num('Height (H)', 60, 15, 500), t: num('Board', 1.5, 0, 6, 0.05, 'thickness mm'), tuck: num('Front tuck', 40, 10, 400) }, build: mailer },
+  fliptop: { label: 'Flip-top mailer with lock tabs (0427 type)', code: 'FTM', group: 'Mailers', tags: 'flip top lid lock tabs slots finger notch keyboard corrugated color box mailer 0427 e-commerce',  params: { L: num('Length (L)', 300, 40, 1500), W: num('Width (W)', 200, 40, 1500), H: num('Height (H)', 50, 15, 500), t: num('Board', 3, 0, 8, 0.1, 'thickness mm'), tuck: num('Front tuck', 40, 10, 400), notch: num('Finger notch radius', 12, 0, 40, 0.5, '0 = no notch'), locks: num('Lock tabs per side', 2, 0, 3, 1, '0 = no tabs') }, build: p => mailer(p, { notch: p.notch, locks: p.locks }) },
   postal: { label: 'Postal box without lid side flaps (0471-style)', code: 'P471', group: 'Mailers', tags: 'postal mailer 0471 fefco die-cut hinged lid no side flaps e-commerce economy',  params: { L: num('Length (L)', 200, 40, 1500), W: num('Width (W)', 150, 40, 1500), H: num('Height (H)', 60, 15, 500), t: num('Board', 1.5, 0, 6, 0.05, 'thickness mm'), tuck: num('Front tuck', 40, 10, 400) }, build: p => mailer(p, { lidDust: false }) },
   rsc: { label: 'Regular slotted container (RSC, 0201)', code: 'RSC', group: 'Corrugated shipping cartons', tags: 'corrugated rsc 0201 shipping carton regular slotted container box fefco international standard', params: { ...CORR }, build: p => slotted(p, 'rsc') },
   osc: { label: 'Overlap slotted container (OSC, 0202)', code: 'OSC', group: 'Corrugated shipping cartons', tags: 'corrugated osc 0202 overlap slotted container outer flaps overlap strong', params: { ...CORR, overlap: num('Outer flap overlap', 25, 25, 2500, 1, 'min 1 inch (25 mm)') }, build: p => slotted(p, 'osc') },
@@ -70,7 +71,7 @@ export function validate(style, p) {
     if (!(Number.isFinite(p[k]) && p[k] >= d.min && p[k] <= d.max)) errs.push(`${d.label} must be ${d.min}–${d.max} mm`);
   }
   if ((style === 'rte' || style === 'ste' || style === 'autolock') && p.tuck > p.W + p.t) errs.push('Tuck flap must not be deeper than W');
-  if (style === 'mailer' && p.tuck > p.H * 1.2) errs.push('Front tuck should not be much deeper than H');
+  if (['mailer', 'postal', 'fliptop'].includes(style) && p.tuck > p.H * 1.2) errs.push('Front tuck should not be much deeper than H');
   return errs;
 }
 
@@ -250,7 +251,7 @@ function mailer(p, opt = {}) {
   // back wall, lid, front tuck, lid dust flaps
   add(rect(0, -Hp, Lp, Hp), 'Back'); crease([0, 0], [Lp, 0]);
   add(rect(0, -Hp - Wl, Lp, Wl), 'Lid', 'lid'); crease([0, -Hp], [Lp, -Hp], 90, 'lid');
-  add(flapOnBase(0, -Hp - Wl, Lp, -1, tuckLocal(Lp, p.tuck)), 'Front tuck', 'tuck'); crease([0, -Hp - Wl], [Lp, -Hp - Wl], 90, 'tuck');
+  add(flapOnBase(0, -Hp - Wl, Lp, -1, opt.notch ? notchedTuck(Lp, p.tuck, opt.notch) : tuckLocal(Lp, p.tuck)), 'Front tuck', 'tuck'); crease([0, -Hp - Wl], [Lp, -Hp - Wl], 90, 'tuck');
   const dd = Math.min(Hp * 0.85, Wl * 0.45);
   if (opt.lidDust !== false) {   // 0471-style: lid has no side dust flaps
     add(flapOnSide(0, -Hp - Wl, Wl, -1, dustLocal(Wl, dd)), 'Dust flap', 'flap'); crease([0, -Hp - Wl], [0, -Hp]);
@@ -261,9 +262,16 @@ function mailer(p, opt = {}) {
   add(rect(0, Wp + Hp, Lp, Hi), 'Front inner'); crease([0, Wp + Hp], [Lp, Wp + Hp], 180);
   // side walls roll over (double walls)
   add(rect(-Hp, 0, Hp, Wp), 'Side'); crease([0, 0], [0, Wp]);
-  add(rect(-Hp - Hi, 0, Hi, Wp), 'Side inner'); crease([-Hp, 0], [-Hp, Wp], 180);
+  const locks = lockTabs(Wp, t, opt.locks || 0);
+  add(sideInner(-Hp, Hi, Wp, -1, locks), 'Side inner'); crease([-Hp, 0], [-Hp, Wp], 180);
   add(rect(Lp, 0, Hp, Wp), 'Side'); crease([Lp, 0], [Lp, Wp]);
-  add(rect(Lp + Hp, 0, Hi, Wp), 'Side inner'); crease([Lp + Hp, 0], [Lp + Hp, Wp], 180);
+  add(sideInner(Lp + Hp, Hi, Wp, 1, locks), 'Side inner'); crease([Lp + Hp, 0], [Lp + Hp, Wp], 180);
+  // slots in the base where the tabs come through (just inside each side crease)
+  const holes = [];
+  locks.forEach(k => {
+    holes.push(rect(k.gap, k.c - k.sl / 2, k.sw, k.sl));
+    holes.push(rect(Lp - k.gap - k.sw, k.c - k.sl / 2, k.sw, k.sl));
+  });
   // ears on back and front walls, locked inside the double side walls
   const e = Math.min(Wp * 0.42, Hp * 1.2), tap = Math.min(e * 0.35, Hp * 0.3);
   const earAway = [[0, 0], [0, e * 0.9], [Hp - tap, e], [Hp, 0]];      // touches the side wall only at a corner
@@ -276,11 +284,40 @@ function mailer(p, opt = {}) {
   dims.push({ a: [Lp + Hp + Hi, 0], b: [Lp + Hp + Hi, Wp], side: 'right', text: Wp });
   dims.push({ a: [Lp + Hp + Hi, -Hp], b: [Lp + Hp + Hi, 0], side: 'right', text: Hp });
   return {
-    dieline: buildDieline(pieces, creases),
+    dieline: buildDieline(pieces, creases, holes),
     labels: pieces.map(pc => ({ text: pc.label, at: centroid(pc.pts), kind: pc.kind })),
     dims,
     hints: { root: [Lp / 2, Wp / 2], floor: true },
   };
+}
+
+// Front tuck with a half-round finger notch in the middle of its free edge.
+function notchedTuck(w, depth, r0) {
+  const pts = tuckLocal(w, depth), r = Math.min(r0, depth * 0.6, w * 0.2);
+  const i = pts.findIndex(q => Math.abs(q[1] - depth) < 1e-9 && q[0] > w / 2);
+  const arc = [];
+  for (let k = 0; k <= 12; k++) { const th = Math.PI * (1 - k / 12); arc.push([w / 2 + r * Math.cos(th), depth - r * Math.sin(th)]); }
+  return [...pts.slice(0, i), ...arc, ...pts.slice(i)];
+}
+
+// Lock tab positions along a side wall of depth Wp: centre c, tab width tw, tab depth td,
+// slot gap from the crease, slot width sw (across) and length sl (along).
+function lockTabs(Wp, t, n) {
+  if (!n) return [];
+  const tw = Math.min(Wp * 0.18, 30), td = 2 * t + 2, sw = Math.max(1.5 * t, 2), sl = tw + 1, gap = Math.max(t * 0.5, 1);
+  return Array.from({ length: n }, (_, j) => ({ c: (Wp * (j + 1)) / (n + 1), tw, td, sw, sl, gap }));
+}
+
+// Inner (rolled-over) side wall: crease at x = xc, free edge Hi further out in direction dir,
+// with lock tabs sticking out of the free edge.
+function sideInner(xc, Hi, Wp, dir, tabs) {
+  const xf = xc + dir * Hi, pts = [[xc, 0], [xf, 0]];
+  [...tabs].sort((a, b) => a.c - b.c).forEach(k => {
+    const y0 = k.c - k.tw / 2, y1 = k.c + k.tw / 2, ch = Math.min(1, k.tw * 0.1);
+    pts.push([xf, y0], [xf + dir * k.td, y0 + ch], [xf + dir * k.td, y1 - ch], [xf, y1]);
+  });
+  pts.push([xf, Wp], [xc, Wp]);
+  return pts;
 }
 
 // Slotted corrugated family (FEFCO 02xx). 4 walls L,W,L,W + manufacturer joint tab; only the flap

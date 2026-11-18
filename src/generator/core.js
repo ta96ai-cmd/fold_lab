@@ -25,9 +25,10 @@ function onSegment(p, a, b, tol = 1e-4) {
 /**
  * pieces: [{ pts: [[x,y],...], label?, kind? ('panel'|'flap'|'glue'|...) }]
  * creases: [{ a: [x,y], b: [x,y], fold?: degrees when closed (default 90), role?: 'lid'|'tuck' }]
- * Returns { cuts: [{a,b}], creases: [{a,b,fold,role}], pieces, bbox }
+ * holes: closed outlines cut inside a panel (slots, handle holes); they become cuts with hole: true.
+ * Returns { cuts: [{a,b,hole?}], creases: [{a,b,fold,role}], pieces, bbox }
  */
-export function buildDieline(pieces, creases) {
+export function buildDieline(pieces, creases, holes = []) {
   const anchors = [];
   pieces.forEach(pc => pc.pts.forEach(p => anchors.push(p)));
   creases.forEach(c => anchors.push(c.a, c.b));
@@ -63,6 +64,9 @@ export function buildDieline(pieces, creases) {
       }
     });
   }
+
+  // holes (lock slots, handle holes): closed cut outlines inside a panel, not panels themselves
+  holes.forEach(h => h.forEach((a, i) => { const b = h[(i + 1) % h.length]; cuts.set(skey(a, b), { a, b, hole: true }); }));
 
   let minx = Infinity, miny = Infinity, maxx = -Infinity, maxy = -Infinity;
   for (const pc of pieces) for (const [x, y] of pc.pts) {
