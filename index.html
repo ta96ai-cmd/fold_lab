@@ -14,7 +14,7 @@
 </nav>
 <div class="app" id="foldApp">
   <aside>
-    <h1>3D Fold <span>· v0.13</span></h1>
+    <h1>3D Fold <span>· v0.14</span></h1>
     <div class="sub">Turn a flat dieline into a foldable 3D box.</div>
 
     <h2>1. Dieline</h2>
@@ -96,7 +96,7 @@
 
 <div class="maker" id="makerApp" hidden>
   <aside class="mk-side">
-    <h1>Dieline Maker <span>· v0.13</span></h1>
+    <h1>Dieline Maker <span>· v0.14</span></h1>
     <div class="sub">Pick a box style, enter the inside size, export for your die-maker.</div>
 
     <h2>Box style</h2>
@@ -108,6 +108,9 @@
     <div class="hint">Inside = room for the product · Die-cut = crease to crease (inside + board) · Outside = finished size (inside + 2 × board)</div>
 
     <h2>Size</h2>
+    <div class="lbl2">Material</div>
+    <select id="mkMat" class="full"></select>
+    <label class="chk"><input type="checkbox" id="mkAdv"> Advanced settings <small id="mkAdvN"></small></label>
     <div class="grid3" id="mkParams"></div>
     <div class="msg" id="mkMsg"></div>
     <div class="mk-info" id="mkInfo"></div>
@@ -117,11 +120,41 @@
     <label class="chk"><input type="checkbox" id="mkLabels" checked> Panel labels</label>
     <label class="chk"><input type="checkbox" id="mkBleed" checked> Bleed <input type="number" id="mkBleedMm" value="3" min="0" max="20" step="0.5" class="mini"> mm</label>
     <label class="chk"><input type="checkbox" id="mkSafe" checked> Safe area <input type="number" id="mkSafeMm" value="3" min="0" max="20" step="0.5" class="mini"> mm</label>
+    <div class="grid3">
+      <label>Dimension text<select id="mkSign"><option value="number">Number</option><option value="both">Code + number</option><option value="code">Code</option><option value="none">None</option></select></label>
+      <label>Dimension sizes<select id="mkDimMode"><option value="diecut">Die-cut</option><option value="inside">Inside</option><option value="outside">Outside</option></select></label>
+      <label>Text size<input type="range" id="mkFont" min="0.6" max="3" step="0.1" value="1"></label>
+    </div>
+    <div class="row tight mk-cols"><label>Cut <input type="color" id="mkCutCol" value="#ff00ff"></label><label>Crease <input type="color" id="mkCreaseCol" value="#00ffff"></label><button class="btn" id="mkColReset">Reset</button></div>
+    <div class="hint">Colours change the screen and SVG; the PDF always uses the CutContour / Crease spot colours.</div>
+
+    <h2>Artwork</h2>
+    <div class="seg" id="arSide"><button data-side="out" class="on">Outside</button><button data-side="in">Inside</button></div>
+    <label class="btn full ar-add">+ Add artwork <small>PNG · JPG · SVG · PDF</small><input type="file" id="arFile" accept=".png,.jpg,.jpeg,.webp,.svg,.pdf,.ai,image/*,application/pdf" multiple hidden></label>
+    <div class="ar-layers" id="arLayers"></div>
+    <div id="arSel" hidden>
+      <div class="grid3">
+        <label>X <small>mm</small><input type="number" id="arX" step="0.5"></label>
+        <label>Y <small>mm</small><input type="number" id="arY" step="0.5"></label>
+        <label>Scale <small>%</small><input type="number" id="arScale" step="1" min="1"></label>
+        <label>Rotate <small>degrees</small><input type="number" id="arRot" step="1"></label>
+        <label>Opacity <small>%</small><input type="number" id="arOp" step="5" min="0" max="100"></label>
+      </div>
+      <div class="row tight"><button class="btn" id="arRotL" title="Turn left 90°">⟲ 90°</button><button class="btn" id="arRotR" title="Turn right 90°">⟳ 90°</button><button class="btn" id="arFlipH" title="Mirror left-right">Flip ↔</button><button class="btn" id="arFlipV" title="Mirror top-bottom">Flip ↕</button></div>
+      <div class="row tight"><button class="btn" id="arCover" title="Fill the whole dieline">Fill</button><button class="btn" id="arContain" title="Fit inside the dieline">Fit</button><button class="btn" id="arWidth" title="Match the dieline width">Width</button><button class="btn" id="arCentre">Centre</button></div>
+    </div>
+    <div class="row tight"><button class="btn" id="arUndo" disabled>↶ Undo</button><button class="btn" id="arRedo" disabled>↷ Redo</button><button class="btn primary" id="arPdf">Print PDF</button></div>
+    <div class="hint">Drag art on the dieline to move it · <b>Alt</b> + wheel = size · <b>Shift</b> + wheel = rotate · arrow keys nudge 1 mm (Shift = 10) · Delete removes · Ctrl+Z / Ctrl+Y. Inside art is shown as seen from inside the box. Print PDF: page 1 outside, page 2 inside (back of the sheet), last page the die line. <b>Fold in 3D</b> takes the art with it.</div>
 
     <h2>Use it</h2>
     <button class="btn primary full" id="mkFold">Fold in 3D →</button>
     <div class="row tight"><button class="btn" id="mkSvg">SVG</button><button class="btn" id="mkPdf">PDF</button><button class="btn" id="mkDxf">DXF</button></div>
     <div class="hint">PDF: spot colours <b>CutContour</b> &amp; <b>Crease</b>, one layer per kind. DXF: layers CUT, CREASE, BLEED, SAFE, DIMENSIONS, LABELS, in mm. To design artwork, use the PDF page: artwork exported at that page size lines up in 3D.</div>
+
+    <h2>My boxes</h2>
+    <div class="row tight"><input type="text" id="mkBoxName" class="mk-text" placeholder="Name, e.g. Acme keyboard box"><button class="btn primary" id="mkBoxSave">Save box</button></div>
+    <div class="mk-boxes" id="mkBoxes"></div>
+    <div class="hint">Saves the style, sizes, settings and placed artwork in this browser. Saving with the same name updates it.</div>
 
     <h2>Sheet layout</h2>
     <select id="mkSheet" class="full"></select>
@@ -141,7 +174,10 @@
   </aside>
   <main class="mk-main">
     <div class="mk-bar">
-      <div class="seg" id="mkView"><button data-v="dieline" class="on">Dieline</button><button data-v="sheet">Sheet layout</button></div>
+      <div class="seg" id="mkView"><button data-v="dieline" class="on">Dieline</button><button data-v="art">Artwork</button><button data-v="sheet">Sheet layout</button></div>
+      <div class="seg" id="mkXf" title="Turn and mirror the dieline (Dieline and Sheet views, SVG / PDF / DXF)"><button data-x="left" title="Turn left 90°">⟲</button><button data-x="right" title="Turn right 90°">⟳</button><button data-x="mirrorX" title="Mirror left-right">⇋</button><button data-x="mirrorY" title="Mirror top-bottom">⇵</button><button data-x="reset" title="Back to as drawn">Reset</button></div>
+      <span class="mk-xf" id="mkXfInfo"></span>
+      <span class="mk-keys" title="Keyboard: + / − / 0 zoom · PgUp / PgDn zoom · 1 / 2 / 3 views · arrows pan · Ctrl+S save box">⌨</span>
       <div class="seg" id="mkZoom"><button data-z="-1">−</button><button data-z="0">Fit</button><button data-z="1">+</button></div>
     </div>
     <div class="mk-canvas" id="mkCanvas"><div id="mkPaper"></div></div>
@@ -158,7 +194,7 @@
 </div>
 <div class="maker" id="persApp" hidden>
   <aside class="mk-side">
-    <h1>Personalise <span>· v0.13</span></h1>
+    <h1>Personalise <span>· v0.14</span></h1>
     <div class="sub">Put a client's logo on your template and download a print-ready file with plates, KLD and instructions.</div>
 
     <h2>1. Template</h2>

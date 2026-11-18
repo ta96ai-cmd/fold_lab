@@ -114,8 +114,8 @@ test('camera moves give finite positions outside the box', () => {
 
 import { frameTimes, VIDEO_SIZES, IMAGE_SIZES } from '../src/export/sizes.js';
 
-test('all 9 camera moves keep the camera at a safe distance', () => {
-  assert.equal(Object.keys(CAMERA_MOVES).length, 9);
+test('all 19 camera moves keep the camera at a safe distance', () => {
+  assert.equal(Object.keys(CAMERA_MOVES).length, 19);
   for (const [name, mv] of Object.entries(CAMERA_MOVES)) for (let i = 0; i <= 40; i++) {
     const p = mv.at(i / 40, 100);
     assert.ok(p.every(Number.isFinite), name);
@@ -124,7 +124,7 @@ test('all 9 camera moves keep the camera at a safe distance', () => {
 });
 
 test('looping moves end where they start', () => {
-  for (const name of ['orbit', 'fullInspection', 'turntable', 'pendulum', 'drift']) {
+  for (const name of ['orbit', 'fullInspection', 'turntable', 'pendulum', 'drift', 'reverseOrbit', 'quickSpin', 'figure8', 'cornerCloseUp']) {
     const a = CAMERA_MOVES[name].at(0, 100), b = CAMERA_MOVES[name].at(1, 100);
     assert.ok(Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2]) < 1e-6, name);
   }

@@ -19,9 +19,23 @@ export function formatLength(mm, units = 'mm') {
   return (Math.round(mm * 10) / 10).toString();
 }
 
+/**
+ * A drawn dimension is crease to crease (die-cut). If it is one of the box's main sizes, return its code
+ * (L, W, H) and its value in the chosen size mode; otherwise the value as drawn.
+ */
+export function dimValue(v, p = {}, mode = 'diecut') {
+  const t = p.t || 0;
+  for (const k of ['L', 'W', 'H']) {
+    if (p[k] === undefined || Math.abs(v - (p[k] + t)) > 0.01) continue;
+    return { code: k, value: mode === 'inside' ? p[k] : mode === 'outside' ? p[k] + 2 * t : p[k] + t };
+  }
+  return { code: '', value: v };
+}
+
 /** Everything a writer needs: lines, guides, dims, labels and page box. */
 export function prepare(gen, opts = {}) {
-  const o = { dims: true, labels: true, bleed: true, safe: true, bleedMm: 3, safeMm: 3, units: 'mm', ...opts };
+  // sign: 'number' | 'both' (code + number) | 'code' | 'none'; dimMode: 'diecut' | 'inside' | 'outside'; fontScale; colors {cut, crease}
+  const o = { dims: true, labels: true, bleed: true, safe: true, bleedMm: 3, safeMm: 3, units: 'mm', sign: 'number', dimMode: 'diecut', fontScale: 1, ...opts };
   const d = gen.dieline;
   const bleed = o.bleed ? bleedOutline(d.pieces, o.bleedMm) : [];
   const safe = o.safe ? safeAreas(d.pieces, o.safeMm) : [];
@@ -32,7 +46,10 @@ export function prepare(gen, opts = {}) {
     const vertical = dm.side === 'right' || dm.side === 'left';
     const pos = dm.at ?? (dm.side === 'top' ? d.bbox.miny - pad - 4 : dm.side === 'bottom' ? d.bbox.maxy + pad + 4 : dm.side === 'right' ? d.bbox.maxx + pad + 4 : d.bbox.minx - pad - 4);
     const a = vertical ? [pos, dm.a[1]] : [dm.a[0], pos], b = vertical ? [pos, dm.b[1]] : [dm.b[0], pos];
-    return { a, b, from: [dm.a, dm.b], vertical, text: fmt(Math.abs(dm.text)) };
+    const { code, value } = dimValue(Math.abs(dm.text), gen.params, o.dimMode);
+    const num = fmt(value);
+    const text = o.sign === 'none' ? '' : o.sign === 'code' ? (code || num) : o.sign === 'both' && code ? `${code} ${num}` : num;
+    return { a, b, from: [dm.a, dm.b], vertical, text, code };
   });
   let minx = d.bbox.minx, miny = d.bbox.miny, maxx = d.bbox.maxx, maxy = d.bbox.maxy;
   const grow = ([x, y]) => { minx = Math.min(minx, x); miny = Math.min(miny, y); maxx = Math.max(maxx, x); maxy = Math.max(maxy, y); };
@@ -52,7 +69,7 @@ export function prepare(gen, opts = {}) {
 
 // ---------- SVG ----------
 export function toSVG(gen, opts) {
-  const P = prepare(gen, opts), f = r3, { page } = P;
+  const P = prepare(gen, opts), f = r3, { page } = P, C = { ...COLORS, ...(P.o.colors || {}) }, fs = P.o.fontScale || 1;
   const pts = pl => pl.map(q => `${f(q[0])},${f(q[1])}`).join(' ');
   const out = [
     `<svg xmlns="http://www.w3.org/2000/svg" width="${f(page.w)}mm" height="${f(page.h)}mm" viewBox="${f(page.x)} ${f(page.y)} ${f(page.w)} ${f(page.h)}" data-rea-root="${f(P.hints.root[0])} ${f(P.hints.root[1])}"${P.hints.floor ? ' data-rea-floor="1"' : ''}>`,
@@ -62,8 +79,8 @@ export function toSVG(gen, opts) {
   if (P.frames.length) out.push(`<g id="sheet" data-rea-ignore="1" fill="none" stroke="${COLORS.dims}" stroke-width="0.4">`, ...P.frames.map(fr => `<polygon points="${pts(fr.pts)}"${fr.dashed ? ' stroke-dasharray="4 3"' : ''}/>`), '</g>');
   if (P.bleed.length) out.push(`<g id="bleed" data-rea-ignore="1" fill="none" stroke="${COLORS.bleed}" stroke-width="0.2" stroke-dasharray="2 1">`, ...P.bleed.map(p => `<polygon points="${pts(p)}"/>`), '</g>');
   if (P.safe.length) out.push(`<g id="safe" data-rea-ignore="1" fill="none" stroke="${COLORS.safe}" stroke-width="0.2" stroke-dasharray="1 1">`, ...P.safe.map(p => `<polygon points="${pts(p)}"/>`), '</g>');
-  out.push(`<g id="cut" fill="none" stroke="${COLORS.cut}" stroke-width="0.25">`, ...P.cutLines.map(pl => `<polyline points="${pts(pl)}"/>`), '</g>');
-  out.push(`<g id="crease" fill="none" stroke="${COLORS.crease}" stroke-width="0.25">`,
+  out.push(`<g id="cut" fill="none" stroke="${C.cut}" stroke-width="0.25">`, ...P.cutLines.map(pl => `<polyline points="${pts(pl)}"/>`), '</g>');
+  out.push(`<g id="crease" fill="none" stroke="${C.crease}" stroke-width="0.25">`,
     ...P.d.creases.map(c => `<line x1="${f(c.a[0])}" y1="${f(c.a[1])}" x2="${f(c.b[0])}" y2="${f(c.b[1])}"${c.fold !== 90 ? ` data-fold="${c.fold}"` : ''}${c.role ? ` data-hinge="${c.role}"` : ''}/>`), '</g>');
   if (P.dimLines.length) {
     out.push(`<g id="dimensions" data-rea-ignore="1" fill="none" stroke="${COLORS.dims}" stroke-width="0.15">`);
@@ -74,13 +91,13 @@ export function toSVG(gen, opts) {
         ...[l.a, l.b].map(q => `<line x1="${f(q[0] - 1)}" y1="${f(q[1] + 1)}" x2="${f(q[0] + 1)}" y2="${f(q[1] - 1)}"/>`));
       const mx = (l.a[0] + l.b[0]) / 2, my = (l.a[1] + l.b[1]) / 2;
       out.push(l.vertical
-        ? `<text x="${f(mx + 1.2)}" y="${f(my)}" transform="rotate(-90 ${f(mx + 1.2)} ${f(my)})" font-size="2.6" font-family="Helvetica, Arial, sans-serif" fill="${COLORS.dims}" stroke="none" text-anchor="middle" dominant-baseline="hanging">${l.text}</text>`
-        : `<text x="${f(mx)}" y="${f(my - 1)}" font-size="2.6" font-family="Helvetica, Arial, sans-serif" fill="${COLORS.dims}" stroke="none" text-anchor="middle">${l.text}</text>`);
+        ? `<text x="${f(mx + 1.2)}" y="${f(my)}" transform="rotate(-90 ${f(mx + 1.2)} ${f(my)})" font-size="${f(2.6 * fs)}" font-family="Helvetica, Arial, sans-serif" fill="${COLORS.dims}" stroke="none" text-anchor="middle" dominant-baseline="hanging">${l.text}</text>`
+        : `<text x="${f(mx)}" y="${f(my - 1)}" font-size="${f(2.6 * fs)}" font-family="Helvetica, Arial, sans-serif" fill="${COLORS.dims}" stroke="none" text-anchor="middle">${l.text}</text>`);
     }
     out.push('</g>');
   }
   if (P.labels.length) out.push(`<g id="labels" data-rea-ignore="1" font-family="Helvetica, Arial, sans-serif" fill="${COLORS.labels}" text-anchor="middle" dominant-baseline="middle">`,
-    ...P.labels.map(lb => `<text x="${f(lb.at[0])}" y="${f(lb.at[1])}" font-size="${lb.kind === 'panel' ? 3.2 : 2.4}">${esc(lb.text)}</text>`), '</g>');
+    ...P.labels.map(lb => `<text x="${f(lb.at[0])}" y="${f(lb.at[1])}" font-size="${f((lb.kind === 'panel' ? 3.2 : 2.4) * fs)}">${esc(lb.text)}</text>`), '</g>');
   out.push('</svg>');
   return out.join('\n');
 }
@@ -112,14 +129,14 @@ export function toPDF(gen, opts) {
     for (const l of P.dimLines) {
       poly([l.from[0], l.a], false); poly([l.from[1], l.b], false); poly([l.a, l.b], false);
       [l.a, l.b].forEach(q => poly([[q[0] - 1, q[1] + 1], [q[0] + 1, q[1] - 1]], false));
-      const mx = (l.a[0] + l.b[0]) / 2, my = (l.a[1] + l.b[1]) / 2, w = l.text.length * 1.3;
-      if (l.vertical) text(l.text, mx - 0.6, my + w / 2, 2.6, Math.PI / 2); else text(l.text, mx - w / 2, my - 1, 2.6);
+      const fs = P.o.fontScale || 1, mx = (l.a[0] + l.b[0]) / 2, my = (l.a[1] + l.b[1]) / 2, w = l.text.length * 1.3 * fs;
+      if (l.text) { if (l.vertical) text(l.text, mx - 0.6, my + w / 2, 2.6 * fs, Math.PI / 2); else text(l.text, mx - w / 2, my - 1, 2.6 * fs); }
     }
     s.push('0.5 w'); end();
   }
   if (P.labels.length) {
     begin('labels'); s.push(`${rgb(COLORS.labels)} rg`);
-    for (const lb of P.labels) { const sz = lb.kind === 'panel' ? 3.2 : 2.4; text(lb.text, lb.at[0] - lb.text.length * sz * 0.27, lb.at[1] + sz * 0.35, sz); }
+    for (const lb of P.labels) { const sz = (lb.kind === 'panel' ? 3.2 : 2.4) * (P.o.fontScale || 1); text(lb.text, lb.at[0] - lb.text.length * sz * 0.27, lb.at[1] + sz * 0.35, sz); }
     end();
   }
   const content = s.join('\n');

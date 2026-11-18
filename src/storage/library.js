@@ -3,9 +3,9 @@ const DB = 'rea-fold-lab', STORE = 'dielines';
 
 function open() {
   return new Promise((res, rej) => {
-    const r = indexedDB.open(DB, 2);
+    const r = indexedDB.open(DB, 3);
     r.onupgradeneeded = () => {
-      for (const name of [STORE, 'templates', 'jobs']) if (!r.result.objectStoreNames.contains(name)) r.result.createObjectStore(name, { keyPath: 'id' });
+      for (const name of [STORE, 'templates', 'jobs', 'boxes']) if (!r.result.objectStoreNames.contains(name)) r.result.createObjectStore(name, { keyPath: 'id' });
     };
     r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error);
   });
@@ -29,7 +29,7 @@ export const listDielines = async () => ((await tx('readonly', s => s.getAll()))
 export const getDieline = id => tx('readonly', s => s.get(id));
 export const deleteDieline = id => tx('readwrite', s => s.delete(id));
 
-// ---------- generic stores (Personalise templates and job versions) ----------
+// ---------- generic stores (Personalise templates and job versions, Dieline Maker boxes) ----------
 export const putItem = (store, item) => tx('readwrite', s => s.put(item), store);
 export const getItem = (store, id) => tx('readonly', s => s.get(id), store);
 export const listItems = async store => (await tx('readonly', s => s.getAll(), store)) || [];

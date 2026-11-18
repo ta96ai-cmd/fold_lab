@@ -32,7 +32,7 @@ src/engine/fold-animation.js
 src/engine/sample-dieline.js
 src/engine/presets.js      fold presets, lid detection
 src/art/sample-art.js      original sample artwork for any dieline
-src/viewer/camera-moves.js 9 camera paths
+src/viewer/camera-moves.js 19 camera paths
 src/export/                image + MP4 export, sizes, download
 src/storage/library.js     saved dielines (IndexedDB)
 src/generator/core.js      pieces + explicit creases -> cut/crease lines
@@ -53,6 +53,7 @@ docs/REA-report.md         the reverse-engineering breakdown
 - **Phase 1 (done):** SVG import, cut/crease mapping, panel and hinge detection, fold sliders, fold animation.
 - **Phase 2 (done):** board thickness (hinges on the inside surface), exterior and interior artwork, sample artwork, fold presets (Flat, Half, Closed, Lid open), 3 camera moves (Showcase orbit, Hero reveal, Top-down reveal) with the lid opening mid-shot.
 - **Phase 3 (done):** PNG export (1080p, 4K, square, vertical; fit-to-frame; transparent background), MP4 export (H.264, 30/60fps, landscape / vertical Reels / square, rendered frame by frame), all 9 camera moves, "My dielines" library saved in the browser.
+- **v0.14 (done):** Dieline Maker gets Packmage-style system features: **Artwork** view (outside / inside art on the dieline: move, scale, rotate, flip, fit, opacity, layers, undo/redo; goes to 3D; print PDF with art clipped to the bleed + die line, inside page mirrored), **My boxes** (save style + sizes + settings + art, reopen later), **Material** list (carton, corrugated, rigid board), **turn / mirror**, dimension text (code / number), dimension sizes (inside / die-cut / outside), text size, line colours, **Advanced** switch, keyboard shortcuts; **19 camera moves** (10 new).
 - **v0.12 (done):** flip-top mailer with lock tabs (0427 type): finger notch on the front tuck, lock tabs on the rolled-over side walls and matching slots in the base. Dielines can now carry holes/slots; the fold engine ignores closed cut outlines inside a panel (also on PDF import), instead of treating them as loose panels.
 - **v0.11 (done):** postal box without lid side flaps (FEFCO 0471-style): the 0427 mailer minus the lid's side dust flaps; less board, folds closed, exports SVG/PDF/DXF. Marked "-style" until checked against a real 0471 sample.
 - **v0.10 (done):** slotted corrugated family (FEFCO 02xx): RSC 0201, OSC 0202 (overlap), FOL 0203 (full overlap), CSSC 0204 (all flaps meet), HSC 0200 (open-top bin) — one engine, each folds closed and exports SVG/PDF/DXF. Start of a 50+ standard-box library built from public FEFCO/ECMA standards.

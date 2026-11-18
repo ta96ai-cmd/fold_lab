@@ -301,9 +301,14 @@ function showTab(name) {
 document.querySelectorAll('.tab').forEach(t => (t.onclick = () => showTab(t.dataset.tab)));
 $('genToggle').onclick = () => showTab('maker');
 const maker = initMaker({
-  onFold: (svg, name) => {
+  onFold: (svg, name, art) => {
     showTab('fold');
-    if (loadSVG(svg, name)) animateTo(presetAngles(state.model, 'closed'), () => { $('all').value = 90; $('allv').textContent = '90°'; $('anim').textContent = 'Unfold box'; });
+    const ok = loadSVG(svg, name);
+    if (ok && art) {   // artwork placed in the Dieline Maker, laid out on the same page as the dieline
+      Object.assign(state.art, { exterior: art.exterior, interior: art.interior, extName: art.exterior ? 'Dieline Maker artwork' : '', intName: art.interior ? 'Dieline Maker artwork (inside)' : '', extBlob: null, intBlob: null, intInside: true });
+      $('intInside').checked = true; applyArt();
+    }
+    if (ok) animateTo(presetAngles(state.model, 'closed'), () => { $('all').value = 90; $('allv').textContent = '90°'; $('anim').textContent = 'Unfold box'; });
   },
 });
 
