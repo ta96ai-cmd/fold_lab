@@ -7,6 +7,7 @@
 import { buildDieline, rect, flapOnBase, flapOnSide, tuckLocal, dustLocal, glueLocal } from './core.js';
 
 const num = (label, def, min, max, step = 0.5, hint = '') => ({ label, def, min, max, step, hint });
+const count = (label, def, min, max, hint = '') => ({ label, def, min, max, step: 1, hint, count: true });   // a number of things, not a length
 const COMMON = {
   L: num('Length (L)', 60, 10, 1500, 0.5, 'inside, front width'),
   W: num('Width (W)', 40, 10, 1500, 0.5, 'inside, side width'),
@@ -30,7 +31,7 @@ export const STYLES = {
   sleeve: { label: 'Sleeve (open both ends)', code: 'SLV', group: 'Sleeves', tags: 'tube band wrap open ends',  params: { ...COMMON, glue: num('Glue flap', 15, 5, 50) }, build: sleeve },
   tray: { label: 'Tray with lid (2 pieces)', code: 'TRL', group: 'Trays & lid-and-base', tags: 'two piece lid base telescope gift',  params: { L: num('Length (L)', 120, 20, 1500), W: num('Width (W)', 80, 20, 1500), H: num('Tray height', 40, 5, 500), lidH: num('Lid height', 25, 5, 500), t: COMMON.t, clear: num('Lid clearance', 1, 0, 10, 0.25, 'extra room') }, build: trayWithLid },
   mailer: { label: 'Mailer – roll end front tuck (FEFCO 0427)', code: 'MLR', group: 'Mailers', tags: 'e-commerce shipping roll end front tuck subscription 0427 fefco postal mailer retf reft',  params: { L: num('Length (L)', 200, 40, 1500), W: num('Width (W)', 150, 40, 1500), H: num('Height (H)', 60, 15, 500), t: num('Board', 1.5, 0, 6, 0.05, 'thickness mm'), tuck: num('Front tuck', 40, 10, 400) }, build: mailer },
-  fliptop: { label: 'Flip-top mailer with lock tabs (0427 type)', code: 'FTM', group: 'Mailers', tags: 'flip top lid lock tabs slots finger notch keyboard corrugated color box mailer 0427 e-commerce',  params: { L: num('Length (L)', 300, 40, 1500), W: num('Width (W)', 200, 40, 1500), H: num('Height (H)', 50, 15, 500), t: num('Board', 3, 0, 8, 0.1, 'thickness mm'), tuck: num('Front tuck', 40, 10, 400), notch: num('Finger notch radius', 12, 0, 40, 0.5, '0 = no notch'), locks: num('Lock tabs per side', 2, 0, 3, 1, '0 = no tabs') }, build: p => mailer(p, { notch: p.notch, locks: p.locks }) },
+  fliptop: { label: 'Flip-top mailer with lock tabs (0427 type)', code: 'FTM', group: 'Mailers', tags: 'flip top lid lock tabs slots finger notch keyboard corrugated color box mailer 0427 e-commerce',  params: { L: num('Length (L)', 300, 40, 1500), W: num('Width (W)', 200, 40, 1500), H: num('Height (H)', 50, 15, 500), t: num('Board', 3, 0, 8, 0.1, 'thickness mm'), tuck: num('Front tuck', 40, 10, 400), notch: num('Finger notch radius', 12, 0, 40, 0.5, '0 = no notch'), locks: count('Lock tabs per side', 2, 0, 3, '0 = no tabs') }, build: p => mailer(p, { notch: p.notch, locks: p.locks }) },
   postal: { label: 'Postal box without lid side flaps (0471-style)', code: 'P471', group: 'Mailers', tags: 'postal mailer 0471 fefco die-cut hinged lid no side flaps e-commerce economy',  params: { L: num('Length (L)', 200, 40, 1500), W: num('Width (W)', 150, 40, 1500), H: num('Height (H)', 60, 15, 500), t: num('Board', 1.5, 0, 6, 0.05, 'thickness mm'), tuck: num('Front tuck', 40, 10, 400) }, build: p => mailer(p, { lidDust: false }) },
   rsc: { label: 'Regular slotted container (RSC, 0201)', code: 'RSC', group: 'Corrugated shipping cartons', tags: 'corrugated rsc 0201 shipping carton regular slotted container box fefco international standard', params: { ...CORR }, build: p => slotted(p, 'rsc') },
   osc: { label: 'Overlap slotted container (OSC, 0202)', code: 'OSC', group: 'Corrugated shipping cartons', tags: 'corrugated osc 0202 overlap slotted container outer flaps overlap strong', params: { ...CORR, overlap: num('Outer flap overlap', 25, 25, 2500, 1, 'min 1 inch (25 mm)') }, build: p => slotted(p, 'osc') },
@@ -68,7 +69,7 @@ export function validate(style, p) {
   const s = STYLES[style]; if (!s) return ['Unknown box style'];
   const errs = [];
   for (const [k, d] of Object.entries(s.params)) {
-    if (!(Number.isFinite(p[k]) && p[k] >= d.min && p[k] <= d.max)) errs.push(`${d.label} must be ${d.min}–${d.max} mm`);
+    if (!(Number.isFinite(p[k]) && p[k] >= d.min && p[k] <= d.max)) errs.push(`${d.label} must be ${d.min}–${d.max}${d.count ? '' : ' mm'}`);
   }
   if ((style === 'rte' || style === 'ste' || style === 'autolock') && p.tuck > p.W + p.t) errs.push('Tuck flap must not be deeper than W');
   if (['mailer', 'postal', 'fliptop'].includes(style) && p.tuck > p.H * 1.2) errs.push('Front tuck should not be much deeper than H');

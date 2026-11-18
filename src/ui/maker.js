@@ -49,7 +49,9 @@ export function initMaker({ onFold }) {
   document.addEventListener('keydown', e => { if (e.key === 'Escape') $('mkGallery').hidden = true; });
 
   function selectStyle(k) {
-    const keep = ['L', 'W', 'H', 't'].filter(x => x in st.params && x in STYLES[k].params);
+    // keep the sizes; keep the board only between styles made of the same board (carton vs corrugated)
+    const sameBoard = STYLES[st.style].params.t?.def === STYLES[k].params.t?.def;
+    const keep = ['L', 'W', 'H', ...(sameBoard ? ['t'] : [])].filter(x => x in st.params && x in STYLES[k].params);
     const old = st.params; st.style = k; st.params = defaults(k);
     keep.forEach(x => (st.params[x] = old[x]));
     renderStyleCard(); renderParams(); update();
@@ -61,19 +63,20 @@ export function initMaker({ onFold }) {
   }
 
   // ---------- parameters (stored as inside mm; shown in the chosen unit and size mode) ----------
-  const toShown = (k, mm) => (k === 't' ? (st.boardUnit === 'pt' ? mm / PT : mm) : mm / UNIT[st.units].f);
-  const fromShown = (k, v) => (k === 't' ? (st.boardUnit === 'pt' ? v * PT : v) : v * UNIT[st.units].f);
+  const isCount = k => !!STYLES[st.style].params[k]?.count;   // counts (lock tabs...) are never unit-converted
+  const toShown = (k, mm) => (isCount(k) ? mm : k === 't' ? (st.boardUnit === 'pt' ? mm / PT : mm) : mm / UNIT[st.units].f);
+  const fromShown = (k, v) => (isCount(k) ? Math.round(v) : k === 't' ? (st.boardUnit === 'pt' ? v * PT : v) : v * UNIT[st.units].f);
   const round = v => +(+v).toFixed(4);
   function renderParams() {
     const box = $('mkParams'); box.innerHTML = '';
     const shown = fromInside(st.params, st.mode);
     for (const [k, d] of Object.entries(STYLES[st.style].params)) {
       const lab = document.createElement('label');
-      const unit = k === 't' ? `<select class="bu"><option value="mm">mm</option><option value="pt">pt</option></select>` : UNIT[st.units].label;
+      const unit = k === 't' ? `<select class="bu"><option value="mm">mm</option><option value="pt">pt</option></select>` : d.count ? 'count' : UNIT[st.units].label;
       const hint = isSizeKey(k) ? SIZE_MODES[st.mode].toLowerCase() : k === 't' ? 'board caliper' : d.hint || '';
       lab.innerHTML = `${d.label.replace(/ \(.*\)/, '')} <small>${unit}${hint ? ' · ' + hint : ''}</small><input type="number">`;
       const inp = lab.querySelector('input');
-      inp.step = k === 't' ? (st.boardUnit === 'pt' ? 1 : 0.05) : UNIT[st.units].step;
+      inp.step = d.count ? 1 : k === 't' ? (st.boardUnit === 'pt' ? 1 : 0.05) : UNIT[st.units].step;
       inp.value = round(toShown(k, shown[k]));
       inp.oninput = () => {
         const v = parseFloat(inp.value); if (!Number.isFinite(v)) return;
